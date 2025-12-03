@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { authService } from '@/services/api';
 import { User, UserResponse } from '@/types/api';
+import { toast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +10,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  hasRequiredRole: (user: User | null) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +50,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userData = normalizeUser(response.data);
       
       if (userData) {
+        // Vérifier si l'utilisateur a le rôle requis
+        if (!hasRequiredRole(userData)) {
+          console.log('Utilisateur sans rôle admin/manager détecté, déconnexion...');
+          localStorage.removeItem('access_token');
+          setUser(null);
+          setIsLoading(false);
+          toast({
+            title: 'Accès refusé',
+            description: 'Vous n\'avez pas les droits nécessaires pour accéder à cette application.',
+            variant: 'destructive',
+          });
+          return;
+        }
         setUser(userData);
       } else {
         // Si le token est invalide ou expiré
@@ -69,6 +84,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, [checkAuth]);
 
+  const hasRequiredRole = useCallback((user: User | null): boolean => {
+    if (!user) return false;
+    return ['ADMIN', 'MANAGER'].includes(user.role.toUpperCase());
+  }, []);
+
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
@@ -80,6 +100,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userData = normalizeUser(profileResponse.data);
         
         if (userData) {
+          // Vérifier si l'utilisateur a le rôle requis
+          if (!hasRequiredRole(userData)) {
+            localStorage.removeItem('access_token');
+            toast({
+              title: 'Accès refusé',
+              description: 'Vous n\'avez pas les droits nécessaires pour accéder à cette application.',
+              variant: 'destructive',
+            });
+            return false;
+          }
+          
           setUser(userData);
           return true;
         }
@@ -91,6 +122,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Erreur de connexion:', error);
       localStorage.removeItem('access_token');
+      toast({
+        title: 'Erreur de connexion',
+        description: 'Une erreur est survenue lors de la connexion.',
+        variant: 'destructive',
+      });
       return false;
     } finally {
       setIsLoading(false);
@@ -112,6 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         logout,
         checkAuth,
+        hasRequiredRole,
       }}
     >
       {children}
