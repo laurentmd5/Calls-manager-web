@@ -26,17 +26,23 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Star,
+import { 
+  User as UserIcon,
+  Edit, 
+  Trash2, 
+  MoreVertical, 
+  Check, 
+  X, 
+  Plus,
   MoreHorizontal,
-  Edit,
+  UserPlus,
   UserX,
   UserCheck,
   Eye,
-  Plus,
+  Star
 } from 'lucide-react';
 import { User } from '@/types';
-import { RegisterRequest } from '@/types/api';
+import { RegisterRequest, UpdateUserRequest } from '@/types/api';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { userService } from '@/services/api';
@@ -73,15 +79,45 @@ export const CommercialsTable = ({ users, onUpdate }: CommercialsTableProps) => 
     return `${hours}h ${mins}m`;
   };
 
-  const toggleUserStatus = (userId: number) => {
-    const updated = users.map(u =>
-      u.id === userId ? { ...u, isActive: !u.isActive } : u
-    );
-    onUpdate(updated);
-    toast({
-      title: 'Statut mis à jour',
-      description: 'Le statut du commercial a été modifié.',
-    });
+  const toggleUserStatus = async (userId: number) => {
+    try {
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
+
+      const newStatus = !user.isActive;
+      
+      // Mise à jour optimiste de l'interface
+      const updatedUsers = users.map(u =>
+        u.id === userId ? { ...u, isActive: newStatus } : u
+      );
+      onUpdate(updatedUsers);
+      
+      // Mise à jour côté serveur
+      await userService.update(userId.toString(), {
+        email: user.email,
+        first_name: user.firstName,
+        last_name: user.lastName,
+        phone_number: user.phoneNumber || '',
+        role: user.role.toLowerCase() as 'commercial' | 'admin' | 'manager',
+        is_active: newStatus
+      });
+      
+      toast({
+        title: 'Statut mis à jour',
+        description: `Le commercial est maintenant ${newStatus ? 'actif' : 'inactif'}`,
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error);
+      
+      // Annulation de la mise à jour optimiste en cas d'erreur
+      onUpdate([...users]);
+      
+      toast({
+        title: 'Erreur',
+        description: 'Une erreur est survenue lors de la mise à jour du statut',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleAddUser = async () => {
@@ -172,15 +208,79 @@ export const CommercialsTable = ({ users, onUpdate }: CommercialsTableProps) => 
     }
   };
 
-  const handleEditUser = () => {
+  const handleEditUser = async () => {
     if (!editUser) return;
-    const updated = users.map(u => (u.id === editUser.id ? editUser : u));
-    onUpdate(updated);
-    setEditUser(null);
-    toast({
-      title: 'Commercial modifié',
-      description: 'Les informations ont été mises à jour.',
-    });
+
+    try {
+      // Préparation des données pour l'API
+      const userData: UpdateUserRequest = {
+        email: editUser.email,
+        first_name: editUser.firstName,
+        last_name: editUser.lastName,
+        phone_number: editUser.phoneNumber || '',
+        role: 'commercial',
+        is_active: editUser.isActive || true,
+      };
+
+      // Appel à l'API pour mettre à jour l'utilisateur
+      console.log('Envoi de la requête de mise à jour avec les données:', userData);
+      const updateResponse = await userService.update(editUser.id.toString(), userData);
+      console.log('Réponse de mise à jour reçue:', updateResponse);
+      
+      // Rechargement de la liste complète après la modification
+      console.log('Récupération de la liste mise à jour des commerciaux...');
+      const response = await userService.getCommercials();
+      console.log('Réponse de getCommercials:', response);
+      
+      if (response && response.data) {
+        // Extraction des données de la réponse
+        const responseData = response.data;
+        
+        // La réponse peut être soit directement le tableau, soit dans une propriété data
+        const usersData = (responseData as any).data || responseData;
+        console.log('Données des commerciaux extraites:', usersData);
+        
+        // Vérification que les données sont bien un tableau
+        const usersList = Array.isArray(usersData) ? usersData : [usersData];
+        console.log('Liste des commerciaux après traitement:', usersList);
+        
+        // Mappage des utilisateurs
+        const mappedUsers = usersList.map((user: any) => ({
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name || user.firstName,
+          lastName: user.last_name || user.lastName,
+          phoneNumber: user.phone_number || user.phoneNumber,
+          role: user.role,
+          isActive: user.is_active || user.isActive,
+          createdAt: user.created_at || user.createdAt,
+          updatedAt: user.updated_at || user.updatedAt,
+          rating: user.rating || 0,
+          totalCalls: user.total_calls || user.totalCalls || 0,
+          answeredCalls: user.answered_calls || user.answeredCalls || 0,
+          totalDuration: user.total_duration || user.totalDuration || 0,
+        }));
+        
+        onUpdate(mappedUsers);
+        
+        setEditUser(null);
+        
+        toast({
+          title: 'Succès',
+          description: 'Les informations du commercial ont été mises à jour',
+          variant: 'default',
+        });
+      } else {
+        throw new Error('Réponse de l\'API invalide');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du commercial:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Une erreur est survenue lors de la mise à jour du commercial',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

@@ -50,6 +50,15 @@ export interface RegisterRequest {
   role: 'commercial' | 'admin' | 'manager';
 }
 
+export interface UpdateUserRequest {
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone_number?: string;
+  role: 'commercial' | 'admin' | 'manager';
+  is_active: boolean;
+}
+
 // Types pour les réponses
 export type UserResponse = ApiResponse<User>;
 export type UsersResponse = ApiResponse<User[]>;

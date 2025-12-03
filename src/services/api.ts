@@ -4,8 +4,11 @@ import {
   LoginRequest, 
   LoginResponse, 
   RegisterRequest, 
+  UpdateUserRequest,
+  User,
   UserResponse, 
-  UsersResponse 
+  UsersResponse,
+  ApiResponse
 } from '@/types/api';
 
 // Création d'une instance Axios avec la configuration de base
@@ -256,8 +259,8 @@ export const userService = {
   getById: (id: string) => api.get<UserResponse>(API_ENDPOINTS.USERS.BY_ID(id)),
   create: (userData: RegisterRequest) => 
     api.post<UserResponse>(API_ENDPOINTS.USERS.BASE, userData),
-  update: (id: string, userData: Partial<RegisterRequest>) => 
-    api.put<UserResponse>(API_ENDPOINTS.USERS.BY_ID(id), userData),
+  update: (id: string, userData: UpdateUserRequest) => 
+    api.put<ApiResponse<User>>(API_ENDPOINTS.USERS.BY_ID(id), userData),
   delete: (id: string) => api.delete<{ success: boolean }>(API_ENDPOINTS.USERS.BY_ID(id)),
 };
 
