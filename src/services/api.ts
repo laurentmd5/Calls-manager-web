@@ -12,27 +12,53 @@ import {
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_CONFIG.BASE_URL,
   timeout: API_CONFIG.TIMEOUT,
-  withCredentials: true, // Important pour les cookies d'authentification
+  withCredentials: false, // Désactivé car nous gérons manuellement les en-têtes
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
 });
 
+// Fonction pour obtenir le token d'authentification
+const getAuthToken = () => {
+  const token = localStorage.getItem('access_token');
+  return token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : null;
+};
+
 // Intercepteur pour ajouter le token JWT aux requêtes
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token');
-    
     // Ne pas ajouter le token pour les routes d'authentification
-    if (token && !config.url?.includes('/login') && !config.url?.includes('/register')) {
-      // S'assurer que le token est au bon format (avec le préfixe Bearer)
-      const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      config.headers.Authorization = authToken;
+    if (config.url?.includes('/login') || config.url?.includes('/register')) {
+      return config;
+    }
+    
+    const token = getAuthToken();
+    
+    if (token) {
+      // Initialiser les en-têtes s'ils ne sont pas définis
+      if (!config.headers) {
+        config.headers = {} as any;
+      }
+      
+      // Définir l'en-tête d'autorisation
+      (config.headers as any).Authorization = token;
       
       // Ajouter les en-têtes nécessaires pour les requêtes CORS
-      config.headers['Content-Type'] = 'application/json';
-      config.headers.Accept = 'application/json';
+      (config.headers as any)['Content-Type'] = 'application/json';
+      (config.headers as any).Accept = 'application/json';
+      
+      // Ajouter le token en paramètre si nécessaire (pour la compatibilité avec certaines API)
+      if (config.params) {
+        config.params = {
+          ...config.params,
+          token: token.replace('Bearer ', '')
+        };
+      } else {
+        config.params = { token: token.replace('Bearer ', '') };
+      }
+    } else {
+      console.warn('Aucun token d\'authentification trouvé');
     }
     
     return config;
@@ -132,9 +158,17 @@ export const authService = {
     try {
       console.log('Tentative de connexion avec:', { email });
       
-      const response = await apiClient.post<LoginResponse>(
-        API_ENDPOINTS.AUTH.LOGIN, 
-        { email, password }
+      // Créer une requête sans l'intercepteur pour éviter la boucle
+      const response = await axios.post<LoginResponse>(
+        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.AUTH.LOGIN}`,
+        { email, password },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          withCredentials: false
+        }
       );
       
       console.log('Réponse de connexion reçue:', response);
@@ -143,11 +177,9 @@ export const authService = {
         const token = response.data.access_token;
         console.log('Token reçu:', token);
         
-        // Stocker le token
-        localStorage.setItem('access_token', token);
-        
-        // Mettre à jour l'en-tête d'autorisation pour les requêtes suivantes
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        // Stocker le token avec le préfixe Bearer
+        const fullToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        localStorage.setItem('access_token', fullToken);
         
         console.log('Connexion réussie et token stocké');
         
@@ -220,6 +252,7 @@ export const authService = {
 
 export const userService = {
   getAll: () => api.get<UsersResponse>(API_ENDPOINTS.USERS.BASE),
+  getCommercials: () => api.get<UsersResponse>(API_ENDPOINTS.USERS.COMMERCIALS),
   getById: (id: string) => api.get<UserResponse>(API_ENDPOINTS.USERS.BY_ID(id)),
   create: (userData: RegisterRequest) => 
     api.post<UserResponse>(API_ENDPOINTS.USERS.BASE, userData),

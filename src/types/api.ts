@@ -1,14 +1,25 @@
-// Définition du type User
+// Définition du type User pour l'API
 export interface User {
   id: number;
   email: string;
   first_name: string;
   last_name: string;
-  phone_number: string;
-  role: string;
+  phone_number?: string;
+  role: 'commercial' | 'admin' | 'manager';
   is_active: boolean;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
+  // Champs optionnels pour la compatibilité avec le type User de l'application
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  rating?: number;
+  totalCalls?: number;
+  answeredCalls?: number;
+  totalDuration?: number;
 }
 
 // Définition de la réponse de connexion
