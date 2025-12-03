@@ -36,8 +36,16 @@ import {
   Plus,
 } from 'lucide-react';
 import { User } from '@/types';
+import { RegisterRequest } from '@/types/api';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
+import { userService } from '@/services/api';
+import { mapApiUserToAppUser } from '@/utils/userUtils';
+
+interface NewUser extends Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'rating' | 'totalCalls' | 'answeredCalls' | 'totalDuration'> {
+  password: string;
+  confirmPassword: string;
+}
 
 interface CommercialsTableProps {
   users: User[];
@@ -48,11 +56,15 @@ export const CommercialsTable = ({ users, onUpdate }: CommercialsTableProps) => 
   const navigate = useNavigate();
   const [editUser, setEditUser] = useState<User | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newUser, setNewUser] = useState({
+  const [newUser, setNewUser] = useState<NewUser>({
     firstName: '',
     lastName: '',
     email: '',
     phoneNumber: '',
+    role: 'commercial',
+    isActive: true,
+    password: '',
+    confirmPassword: '',
   });
 
   const formatDuration = (seconds: number) => {
@@ -72,35 +84,92 @@ export const CommercialsTable = ({ users, onUpdate }: CommercialsTableProps) => 
     });
   };
 
-  const handleAddUser = () => {
-    if (!newUser.firstName || !newUser.lastName || !newUser.email) {
+  const handleAddUser = async () => {
+    // Validation des champs obligatoires
+    if (!newUser.firstName || !newUser.lastName || !newUser.email || !newUser.password) {
       toast({
         title: 'Erreur',
-        description: 'Veuillez remplir tous les champs obligatoires.',
+        description: 'Veuillez remplir tous les champs obligatoires',
         variant: 'destructive',
       });
       return;
     }
 
-    const user: User = {
-      id: Math.max(...users.map(u => u.id)) + 1,
-      ...newUser,
-      role: 'commercial',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      rating: 0,
-      totalCalls: 0,
-      answeredCalls: 0,
-      totalDuration: 0,
-    };
+    // Vérification de la correspondance des mots de passe
+    if (newUser.password !== newUser.confirmPassword) {
+      toast({
+        title: 'Erreur',
+        description: 'Les mots de passe ne correspondent pas',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-    onUpdate([...users, user]);
-    setIsAddDialogOpen(false);
-    setNewUser({ firstName: '', lastName: '', email: '', phoneNumber: '' });
-    toast({
-      title: 'Commercial ajouté',
-      description: `${user.firstName} ${user.lastName} a été ajouté avec succès.`,
-    });
+    try {
+      // Préparation des données pour l'API selon le type RegisterRequest
+      const userData: RegisterRequest = {
+        email: newUser.email,
+        first_name: newUser.firstName,    // snake_case pour correspondre au backend
+        last_name: newUser.lastName,      // snake_case pour correspondre au backend
+        phone_number: newUser.phoneNumber || '',  // snake_case pour correspondre au backend
+        role: 'commercial' as const,       // Type littéral 'commercial'
+        password: newUser.password,
+      };
+
+      // Appel à l'API pour créer l'utilisateur
+      const response = await userService.create(userData);
+      
+      // Vérification de la réponse de l'API
+      if (response && response.data) {
+        // Si la réponse contient directement l'utilisateur créé
+        const apiUser = response.data.data || response.data;
+        
+        if (apiUser) {
+          // Vérification du type de la réponse
+          if ('id' in apiUser && 'email' in apiUser) {
+            const createdUser = mapApiUserToAppUser(apiUser);
+            onUpdate([...users, createdUser]);
+            
+            // Réinitialisation du formulaire
+            setNewUser({
+              email: '',
+              firstName: '',
+              lastName: '',
+              phoneNumber: '',
+              password: '',
+              confirmPassword: '',
+              role: 'commercial',
+              isActive: true,
+            });
+            
+            // Fermeture de la boîte de dialogue
+            setIsAddDialogOpen(false);
+            
+            // Message de succès
+            toast({
+              title: 'Commercial ajouté',
+              description: `${createdUser.firstName} ${createdUser.lastName} a été ajouté avec succès.`,
+              variant: 'default',
+            });
+          } else {
+            // Si la réponse ne contient pas les champs attendus, on recharge la liste
+            onUpdate([...users]);
+            throw new Error('Réponse de l\'API incomplète, veuillez recharger la page');
+          }
+        } else {
+          throw new Error('Réponse de l\'API invalide: données utilisateur manquantes');
+        }
+      } else {
+        throw new Error('Réponse de l\'API invalide');
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout du commercial:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Une erreur est survenue lors de l\'ajout du commercial',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleEditUser = () => {
@@ -266,6 +335,27 @@ export const CommercialsTable = ({ users, onUpdate }: CommercialsTableProps) => 
                 id="phone"
                 value={newUser.phoneNumber}
                 onChange={(e) => setNewUser({ ...newUser, phoneNumber: e.target.value })}
+                placeholder="+221XXXXXXXX"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Mot de passe *</Label>
+              <Input
+                id="password"
+                type="password"
+                value={newUser.password}
+                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                placeholder="••••••••"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmer le mot de passe *</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={newUser.confirmPassword}
+                onChange={(e) => setNewUser({ ...newUser, confirmPassword: e.target.value })}
+                placeholder="••••••••"
               />
             </div>
           </div>
