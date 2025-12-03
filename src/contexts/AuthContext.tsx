@@ -74,7 +74,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       const response = await authService.login(email, password);
       
-      if (response.status === 200) {
+      // Vérifier si la réponse contient un token d'accès
+      if (response && response.access_token) {
         const profileResponse = await authService.getProfile();
         const userData = normalizeUser(profileResponse.data);
         

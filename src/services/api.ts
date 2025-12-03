@@ -12,10 +12,11 @@ import {
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_CONFIG.BASE_URL,
   timeout: API_CONFIG.TIMEOUT,
+  withCredentials: true, // Important pour les cookies d'authentification
   headers: {
-    ...API_CONFIG.headers,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
-  withCredentials: true,
 });
 
 // Intercepteur pour ajouter le token JWT aux requêtes
@@ -133,47 +134,27 @@ export const authService = {
       
       const response = await apiClient.post<LoginResponse>(
         API_ENDPOINTS.AUTH.LOGIN, 
-        { email, password },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          withCredentials: true
-        }
+        { email, password }
       );
       
-      console.log('Réponse de connexion reçue:', response.data);
+      console.log('Réponse de connexion reçue:', response);
       
-      // Stocker le token avec le préfixe Bearer
       if (response.data?.access_token) {
         const token = response.data.access_token;
         console.log('Token reçu:', token);
         
-        // Stocker le token brut (sans le préfixe Bearer)
-        const cleanToken = token.startsWith('Bearer ') ? token.substring(7) : token;
-        localStorage.setItem('access_token', cleanToken);
+        // Stocker le token
+        localStorage.setItem('access_token', token);
         
         // Mettre à jour l'en-tête d'autorisation pour les requêtes suivantes
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${cleanToken}`;
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
-        console.log('Token stocké et en-tête mis à jour');
+        console.log('Connexion réussie et token stocké');
         
-        // Si la réponse contient des données utilisateur, les retourner également
-        if (response.data.user) {
-          return {
-            ...response,
-            data: {
-              ...response.data,
-              user: response.data.user
-            }
-          };
-        }
-      } else {
-        console.error('Aucun token dans la réponse de connexion');
+        return response.data;
       }
       
-      return response;
+      throw new Error('Aucun token reçu du serveur');
     } catch (error: any) {
       console.error('Erreur lors de la connexion:', {
         message: error.message,
