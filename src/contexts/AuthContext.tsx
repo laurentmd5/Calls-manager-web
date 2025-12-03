@@ -1,61 +1,105 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { User } from '@/types';
+import { authService } from '@/services/api';
+import { User, UserResponse } from '@/types/api';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock admin user for demo
-const mockAdminUser: User = {
-  id: 0,
-  email: 'admin@calltrack.com',
-  firstName: 'Admin',
-  lastName: 'System',
-  role: 'admin',
-  isActive: true,
-  createdAt: '2024-01-01T00:00:00Z',
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  
+  // Fonction pour normaliser les données utilisateur
+  const normalizeUser = (data: any): User | null => {
+    if (!data) return null;
+    
+    // Si les données sont déjà au bon format
+    if (data.id && data.email) {
+      return data as User;
+    }
+    
+    // Si les données sont dans une propriété data
+    if (data.data && data.data.id && data.data.email) {
+      return data.data as User;
+    }
+    
+    return null;
+  };
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Check for existing session
-    const storedUser = localStorage.getItem('calltrack_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+  // Vérifier l'authentification au chargement
+  const checkAuth = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await authService.getProfile();
+      const userData = normalizeUser(response.data);
+      
+      if (userData) {
+        setUser(userData);
+      } else {
+        // Si le token est invalide ou expiré
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('access_token');
+        }
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Erreur de vérification de l\'authentification:', error);
+      localStorage.removeItem('access_token');
+      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // Demo credentials
-    if (email === 'admin@calltrack.com' && password === 'admin123') {
-      setUser(mockAdminUser);
-      localStorage.setItem('calltrack_user', JSON.stringify(mockAdminUser));
+    try {
+      setIsLoading(true);
+      const response = await authService.login(email, password);
+      
+      if (response.status === 200) {
+        const profileResponse = await authService.getProfile();
+        const userData = normalizeUser(profileResponse.data);
+        
+        if (userData) {
+          setUser(userData);
+          return true;
+        }
+      }
+      
+      localStorage.removeItem('access_token');
+      return false;
+      
+    } catch (error) {
+      console.error('Erreur de connexion:', error);
+      localStorage.removeItem('access_token');
+      return false;
+    } finally {
       setIsLoading(false);
-      return true;
     }
-    
-    setIsLoading(false);
-    return false;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Supprimer le token et les données utilisateur
+    localStorage.removeItem('access_token');
     setUser(null);
-    localStorage.removeItem('calltrack_user');
   }, []);
 
   return (
@@ -66,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         logout,
+        checkAuth,
       }}
     >
       {children}
@@ -73,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
