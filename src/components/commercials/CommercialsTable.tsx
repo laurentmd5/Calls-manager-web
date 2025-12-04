@@ -81,18 +81,19 @@ export const CommercialsTable = ({ users, onUpdate, showInactive }: CommercialsT
   };
 
   const toggleUserStatus = async (userId: number) => {
-    try {
-      const user = users.find(u => u.id === userId);
-      if (!user) return;
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
 
-      const newStatus = !user.isActive;
-      
-      // Mise à jour optimiste de l'interface
-      const updatedUsers = users.map(u =>
-        u.id === userId ? { ...u, isActive: newStatus } : u
-      );
-      onUpdate(updatedUsers);
-      
+    const newStatus = !user.isActive;
+    const previousUsers = [...users];
+    
+    // Mise à jour optimiste de l'interface
+    const updatedUsers = users.map(u =>
+      u.id === userId ? { ...u, isActive: newStatus } : u
+    );
+    onUpdate(updatedUsers);
+    
+    try {
       // Mise à jour côté serveur
       await userService.update(userId.toString(), {
         email: user.email,
@@ -108,10 +109,9 @@ export const CommercialsTable = ({ users, onUpdate, showInactive }: CommercialsT
         description: `Le commercial est maintenant ${newStatus ? 'actif' : 'inactif'}`,
       });
     } catch (error) {
+      // En cas d'erreur, on revient à l'état précédent
+      onUpdate(previousUsers);
       console.error('Erreur lors de la mise à jour du statut:', error);
-      
-      // Annulation de la mise à jour optimiste en cas d'erreur
-      onUpdate([...users]);
       
       toast({
         title: 'Erreur',

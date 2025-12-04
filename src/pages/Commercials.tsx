@@ -53,9 +53,14 @@ const Commercials = () => {
   };
 
   const handleUpdateUsers = (updatedUsers: User[]) => {
-    setUsers(updatedUsers);
-    // Recharger la liste après une mise à jour pour s'assurer que les changements sont reflétés
-    fetchUsers(showInactive);
+    // Mettre à jour l'état local avec les utilisateurs mis à jour
+    setUsers(prevUsers => {
+      // Créer une map des utilisateurs mis à jour pour un accès rapide
+      const updatedUsersMap = new Map(updatedUsers.map(user => [user.id, user]));
+      
+      // Fusionner les utilisateurs existants avec les mises à jour
+      return prevUsers.map(user => updatedUsersMap.get(user.id) || user);
+    });
   };
 
   return (
