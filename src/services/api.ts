@@ -256,6 +256,7 @@ export const authService = {
 export const userService = {
   getAll: () => api.get<UsersResponse>(API_ENDPOINTS.USERS.BASE),
   getCommercials: () => api.get<UsersResponse>(API_ENDPOINTS.USERS.COMMERCIALS),
+  getInactiveUsers: () => api.get<UsersResponse>(API_ENDPOINTS.USERS.INACTIVE),
   getById: (id: string) => api.get<UserResponse>(API_ENDPOINTS.USERS.BY_ID(id)),
   create: (userData: RegisterRequest) => 
     api.post<UserResponse>(API_ENDPOINTS.USERS.BASE, userData),

@@ -56,9 +56,10 @@ interface NewUser extends Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'rating'
 interface CommercialsTableProps {
   users: User[];
   onUpdate: (users: User[]) => void;
+  showInactive: boolean;
 }
 
-export const CommercialsTable = ({ users, onUpdate }: CommercialsTableProps) => {
+export const CommercialsTable = ({ users, onUpdate, showInactive }: CommercialsTableProps) => {
   const navigate = useNavigate();
   const [editUser, setEditUser] = useState<User | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -283,13 +284,23 @@ export const CommercialsTable = ({ users, onUpdate }: CommercialsTableProps) => 
     }
   };
 
+  // Filtrer les utilisateurs en fonction de l'état du filtre
+  const filteredUsers = showInactive 
+    ? users.filter(user => !user.isActive)
+    : users.filter(user => user.isActive);
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Ajouter un commercial
-        </Button>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">
+          {showInactive ? 'Utilisateurs Inactifs' : 'Liste des Commerciaux'}
+        </h2>
+        {!showInactive && (
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Ajouter un commercial
+          </Button>
+        )}
       </div>
 
       <div className="rounded-lg border bg-card overflow-hidden">
@@ -307,87 +318,97 @@ export const CommercialsTable = ({ users, onUpdate }: CommercialsTableProps) => 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => {
-              const responseRate = user.totalCalls
-                ? Math.round((user.answeredCalls || 0) / user.totalCalls * 100)
-                : 0;
+            {filteredUsers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="h-24 text-center">
+                  {showInactive 
+                    ? 'Aucun utilisateur inactif trouvé' 
+                    : 'Aucun commercial trouvé'}
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredUsers.map((user) => {
+                const responseRate = user.totalCalls
+                  ? Math.round((user.answeredCalls || 0) / user.totalCalls * 100)
+                  : 0;
 
-              return (
-                <TableRow key={user.id} className="hover:bg-muted/30">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                          {user.firstName[0]}{user.lastName[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{user.firstName} {user.lastName}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                return (
+                  <TableRow key={user.id} className="hover:bg-muted/30">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                            {user.firstName[0]}{user.lastName[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{user.firstName} {user.lastName}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {user.phoneNumber || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-medium">{user.totalCalls}</span>
-                    <span className="text-muted-foreground text-sm ml-1">
-                      ({user.answeredCalls} répondus)
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={responseRate >= 80 ? 'default' : responseRate >= 60 ? 'secondary' : 'destructive'}>
-                      {responseRate}%
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDuration(user.totalDuration || 0)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="font-medium">{user.rating?.toFixed(1) || '-'}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                      {user.isActive ? 'Actif' : 'Inactif'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/performance/${user.id}`)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          Voir profil
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setEditUser(user)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Modifier
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => toggleUserStatus(user.id)}>
-                          {user.isActive ? (
-                            <>
-                              <UserX className="h-4 w-4 mr-2" />
-                              Désactiver
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="h-4 w-4 mr-2" />
-                              Activer
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {user.phoneNumber || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-medium">{user.totalCalls}</span>
+                      <span className="text-muted-foreground text-sm ml-1">
+                        ({user.answeredCalls} répondus)
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={responseRate >= 80 ? 'default' : responseRate >= 60 ? 'secondary' : 'destructive'}>
+                        {responseRate}%
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatDuration(user.totalDuration || 0)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        <span className="font-medium">{user.rating?.toFixed(1) || '-'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={user.isActive ? 'default' : 'secondary'}>
+                        {user.isActive ? 'Actif' : 'Inactif'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/performance/${user.id}`)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            Voir profil
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditUser(user)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Modifier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleUserStatus(user.id)}>
+                            {user.isActive ? (
+                              <>
+                                <UserX className="h-4 w-4" />
+                                Désactiver
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="h-4 w-4" />
+                                Activer
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
       </div>

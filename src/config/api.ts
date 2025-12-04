@@ -26,6 +26,7 @@ export const API_ENDPOINTS = {
     BASE: '/api/v1/users',
     BY_ID: (id: string) => `/api/v1/users/${id}`,
     COMMERCIALS: '/api/v1/users/commercials',
+    INACTIVE: '/api/v1/users/inactive',
   },
   CLIENTS: {
     BASE: '/api/v1/clients',
