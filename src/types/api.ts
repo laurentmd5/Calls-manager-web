@@ -64,6 +64,13 @@ export type UserResponse = ApiResponse<User>;
 export type UsersResponse = ApiResponse<User[]>;
 
 // Types pour les appels
+export interface Commercial {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
 export interface Call {
   id: number;
   phone_number: string;
@@ -73,9 +80,10 @@ export interface Call {
   notes: string | null;
   client_id: number | null;
   commercial_id: number;
+  commercial: Commercial; // Ajout de l'objet commercial complet
   call_date: string;
-  call_type?: 'incoming' | 'outgoing'; // Pour la compatibilité avec le frontend existant
-  has_recording?: boolean; // Indique si un enregistrement existe pour cet appel
+  call_type?: 'incoming' | 'outgoing';
+  has_recording?: boolean;
 }
 
 export interface Recording {

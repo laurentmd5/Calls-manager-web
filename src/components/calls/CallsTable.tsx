@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import useCalls from '@/hooks/useCalls';
+import useCommercials from '@/hooks/useCommercials';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -72,11 +73,7 @@ export const CallsTable = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getCommercialName = (id: number) => {
-    // Pour l'instant, on retourne juste l'ID du commercial
-    // Vous pourrez améliorer cela en récupérant les informations du commercial depuis l'API
-    return `Commercial #${id}`;
-  };
+  const { getCommercialName } = useCommercials();
 
   const handleDecisionChange = async (callId: number, decision: DecisionType | null | 'undefined') => {
     // Convertir 'undefined' en null pour l'API
@@ -346,7 +343,11 @@ export const CallsTable = () => {
                     <PhoneOutgoing className="h-4 w-4 text-accent-foreground" />
                   </TableCell>
                   <TableCell className="font-medium">{call.phone_number}</TableCell>
-                  <TableCell>{getCommercialName(call.commercial_id)}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">
+                      {call.commercial ? `${call.commercial.first_name} ${call.commercial.last_name}` : `Commercial #${call.commercial_id}`}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {format(parseISO(call.call_date), 'dd MMM yyyy HH:mm', { locale: fr })}
                   </TableCell>
