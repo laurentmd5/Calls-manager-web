@@ -36,6 +36,7 @@ import useCalls from '@/hooks/useCalls';
 import useCommercials from '@/hooks/useCommercials';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
+import { AudioPlayerModal } from '@/components/audio/AudioPlayerModal';
 
 const statusConfig: Record<CallStatus, { label: string; variant: 'default' | 'destructive' | 'outline' | 'secondary' }> = {
   answered: { label: 'Répondu', variant: 'default' },
@@ -60,11 +61,14 @@ export const CallsTable = () => {
   
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [audioModalOpen, setAudioModalOpen] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<{
+    src: string;
+    call: Call;
+  } | null>(null);
+  const [updatingCalls, setUpdatingCalls] = useState<Record<number, boolean>>({});
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [playingId, setPlayingId] = useState<number | null>(null);
-  const [updatingCalls, setUpdatingCalls] = useState<Record<number, boolean>>({});
-  const [audioSrc, setAudioSrc] = useState<string | null>(null);
-  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
 
   const formatDuration = (seconds: number) => {
     if (!seconds) return '-';
@@ -143,78 +147,33 @@ export const CallsTable = () => {
     }
   }, [calls, filteredCalls, loading]);
 
-  const togglePlay = async (call: Call) => {
-    try {
-      if (playingId === call.id) {
-        // Arrêter la lecture
-        if (audio) {
-          audio.pause();
-          audio.currentTime = 0;
-          setAudio(null);
-          setAudioSrc(null);
-        }
-        setPlayingId(null);
-        return;
-      }
-
-      // Arrêter toute lecture en cours
-      if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
-      }
-
-      // Si l'appel a un enregistrement, le lire
-      if (call.has_recording) {
-        // Construire l'URL de l'API pour récupérer l'enregistrement
-        const audioUrl = `http://127.0.0.1:8000/api/v1/recordings/by-call/${call.id}/play?token=${localStorage.getItem('access_token')}`;
-        
-        // Créer un nouvel élément audio
-        const newAudio = new Audio(audioUrl);
-        newAudio.preload = 'metadata';
-        
-        newAudio.onplay = () => {
-          setPlayingId(call.id);
-        };
-        
-        newAudio.onended = () => {
-          setPlayingId(null);
-          setAudio(null);
-          setAudioSrc(null);
-        };
-        
-        newAudio.onerror = (e) => {
-          console.error('Erreur lors de la lecture de l\'enregistrement:', e);
-          toast({
-            title: 'Erreur',
-            description: 'Impossible de lire l\'enregistrement audio. Veuillez réessayer ou contacter le support.',
-            variant: 'destructive',
-          });
-          setPlayingId(null);
-          setAudio(null);
-          setAudioSrc(null);
-        };
-        
-        setAudio(newAudio);
-        setAudioSrc(audioUrl);
-        await newAudio.play();
-      } else {
-        toast({
-          title: 'Information',
-          description: 'Aucun enregistrement disponible pour cet appel',
-          variant: 'default',
-        });
-      }
-    } catch (error) {
-      console.error('Erreur lors de la lecture audio:', error);
+  const handlePlayAudio = (call: Call) => {
+    if (!call.has_recording) {
       toast({
-        title: 'Erreur',
-        description: 'Une erreur est survenue lors de la lecture de l\'enregistrement',
-        variant: 'destructive',
+        title: 'Information',
+        description: 'Aucun enregistrement disponible pour cet appel',
+        variant: 'default',
       });
-      setPlayingId(null);
-      setAudio(null);
-      setAudioSrc(null);
+      return;
     }
+    
+    const audioUrl = `http://127.0.0.1:8000/api/v1/recordings/by-call/${call.id}/play?token=${localStorage.getItem('access_token')}`;
+    
+    setCurrentAudio({
+      src: audioUrl,
+      call: {
+        ...call,
+        phone_number: call.phone_number || 'Numéro inconnu',
+        call_date: call.call_date || new Date().toISOString(),
+        duration: call.duration || 0,
+      },
+    });
+    setAudioModalOpen(true);
+  };
+
+  const handleCloseAudioModal = () => {
+    setAudioModalOpen(false);
+    setCurrentAudio(null);
   };
 
   const handleDownload = async (call: Call) => {
@@ -393,32 +352,22 @@ export const CallsTable = () => {
                     {call.notes || '-'}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => togglePlay(call)}
-                        disabled={!call.has_recording}
-                        aria-label={playingId === call.id ? 'Arrêter la lecture' : 'Lire l\'enregistrement'}
-                      >
-                        {playingId === call.id ? (
-                          <Pause className="h-4 w-4" />
-                        ) : (
-                          <Play className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8"
-                        onClick={() => handleDownload(call)}
-                        disabled={!call.has_recording}
-                        aria-label="Télécharger l'enregistrement"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handlePlayAudio(call)}
+                      disabled={!call.has_recording}
+                    >
+                      <Play className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDownload(call)}
+                      disabled={!call.has_recording}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -430,6 +379,18 @@ export const CallsTable = () => {
       <p className="text-sm text-muted-foreground">
         {filteredCalls.length} appel(s) trouvé(s) sur {calls.length} au total
       </p>
+      
+      {/* Modal de lecture audio */}
+      <AudioPlayerModal
+        isOpen={audioModalOpen}
+        onClose={handleCloseAudioModal}
+        audioSrc={currentAudio?.src || null}
+        callData={currentAudio ? {
+          phoneNumber: currentAudio.call.phone_number,
+          date: currentAudio.call.call_date,
+          duration: currentAudio.call.duration || 0,
+        } : undefined}
+      />
     </div>
   );
 };
