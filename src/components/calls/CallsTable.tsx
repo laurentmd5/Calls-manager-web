@@ -166,7 +166,7 @@ export const CallsTable = () => {
       // Si l'appel a un enregistrement, le lire
       if (call.has_recording) {
         // Construire l'URL de l'API pour récupérer l'enregistrement
-        const audioUrl = `http://127.0.0.1:8000/api/v1/recordings/${call.id}?token=${localStorage.getItem('access_token')}`;
+        const audioUrl = `http://127.0.0.1:8000/api/v1/recordings/by-call/${call.id}/play?token=${localStorage.getItem('access_token')}`;
         
         // Créer un nouvel élément audio
         const newAudio = new Audio(audioUrl);
@@ -182,11 +182,11 @@ export const CallsTable = () => {
           setAudioSrc(null);
         };
         
-        newAudio.onerror = () => {
-          console.error('Erreur lors de la lecture de l\'enregistrement');
+        newAudio.onerror = (e) => {
+          console.error('Erreur lors de la lecture de l\'enregistrement:', e);
           toast({
             title: 'Erreur',
-            description: 'Impossible de lire l\'enregistrement audio',
+            description: 'Impossible de lire l\'enregistrement audio. Veuillez réessayer ou contacter le support.',
             variant: 'destructive',
           });
           setPlayingId(null);
@@ -230,7 +230,7 @@ export const CallsTable = () => {
     try {
       // Télécharger l'enregistrement
       const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/recordings/${call.id}/download?token=${localStorage.getItem('access_token')}`,
+        `http://127.0.0.1:8000/api/v1/recordings/by-call/${call.id}/download?token=${localStorage.getItem('access_token')}`,
         {
           headers: {
             'Accept': 'audio/*',
@@ -238,13 +238,27 @@ export const CallsTable = () => {
         }
       );
       
-      if (!response.ok) throw new Error('Erreur lors du téléchargement');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Erreur lors du téléchargement');
+      }
+      
+      // Obtenir le nom du fichier depuis les en-têtes de la réponse ou utiliser une valeur par défaut
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `enregistrement-${call.id}.mp3`;
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
       
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `enregistrement-${call.id}.mp3`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

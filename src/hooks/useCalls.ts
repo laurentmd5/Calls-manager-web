@@ -14,8 +14,23 @@ export const useCalls = () => {
 
   const checkRecording = async (callId: number): Promise<boolean> => {
     try {
-      const response = await recordingService.getById(callId.toString());
-      return response.data && response.data.success;
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/v1/recordings/by-call/${callId}?token=${localStorage.getItem('access_token')}`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        // Si la réponse n'est pas 200, il n'y a pas d'enregistrement
+        return false;
+      }
+      
+      const data = await response.json();
+      return data && data.id !== undefined; // Vérifie que nous avons bien reçu un enregistrement
     } catch (error) {
       console.error(`Erreur lors de la vérification de l'enregistrement pour l'appel ${callId}:`, error);
       return false;
