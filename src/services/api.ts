@@ -8,7 +8,12 @@ import {
   User,
   UserResponse, 
   UsersResponse,
-  ApiResponse
+  ApiResponse,
+  Call,
+  CallResponse,
+  CallsResponse,
+  RecordingResponse,
+  RecordingsResponse
 } from '@/types/api';
 
 // Création d'une instance Axios avec la configuration de base
@@ -134,13 +139,10 @@ export const api = {
   // Téléchargement de fichier
   upload: <T>(
     url: string, 
-    file: File, 
+    formData: FormData, 
     fieldName: string = 'file',
     onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
   ): Promise<AxiosResponse<T>> => {
-    const formData = new FormData();
-    formData.append(fieldName, file);
-    
     return apiClient.post<T>(url, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -275,21 +277,97 @@ export const clientService = {
 };
 
 export const callService = {
-  getAll: () => api.get(API_ENDPOINTS.CALLS.BASE),
-  getById: (id: string) => api.get(API_ENDPOINTS.CALLS.BY_ID(id)),
-  create: (callData: any) => api.post(API_ENDPOINTS.CALLS.BASE, callData),
-  update: (id: string, callData: any) => 
-    api.put(API_ENDPOINTS.CALLS.BY_ID(id), callData),
-  delete: (id: string) => api.delete(API_ENDPOINTS.CALLS.BY_ID(id)),
+  getAll: async (params?: { skip?: number; limit?: number }) => {
+    try {
+      console.log('Appel à callService.getAll avec params:', params);
+      const response = await api.get<CallsResponse>(API_ENDPOINTS.CALLS.BASE, { params });
+      console.log('Réponse de callService.getAll:', response);
+      
+      // Normaliser la réponse pour gérer différents formats
+      if (Array.isArray(response.data)) {
+        // Si la réponse est directement un tableau
+        return { data: { success: true, data: response.data } };
+      } else if (response.data && Array.isArray(response.data.data)) {
+        // Si la réponse est au format { success: true, data: [...] }
+        return response;
+      } else {
+        // Autre format inattendu
+        console.error('Format de réponse inattendu de callService.getAll:', response);
+        return { 
+          data: { 
+            success: false, 
+            message: 'Format de réponse inattendu',
+            data: [] 
+          } 
+        };
+      }
+    } catch (error) {
+      console.error('Erreur dans callService.getAll:', error);
+      throw error;
+    }
+  },
+  
+  getById: async (id: string) => {
+    try {
+      const response = await api.get<CallResponse>(API_ENDPOINTS.CALLS.BY_ID(id));
+      return response;
+    } catch (error) {
+      console.error(`Erreur dans callService.getById(${id}):`, error);
+      throw error;
+    }
+  },
+  
+  create: async (callData: Omit<Call, 'id'>) => {
+    try {
+      const response = await api.post<CallResponse>(API_ENDPOINTS.CALLS.BASE, callData);
+      return response;
+    } catch (error) {
+      console.error('Erreur dans callService.create:', error);
+      throw error;
+    }
+  },
+  
+  update: async (id: string, callData: Partial<Omit<Call, 'id'>>) => {
+    try {
+      console.log(`Mise à jour de l'appel ${id} avec:`, callData);
+      const response = await api.put<CallResponse>(API_ENDPOINTS.CALLS.BY_ID(id), callData);
+      console.log('Réponse de la mise à jour:', response);
+      return response;
+    } catch (error) {
+      console.error(`Erreur dans callService.update(${id}):`, error);
+      throw error;
+    }
+  },
+  
+  delete: async (id: string) => {
+    try {
+      const response = await api.delete<ApiResponse<{}>>(API_ENDPOINTS.CALLS.BY_ID(id));
+      return response;
+    } catch (error) {
+      console.error(`Erreur dans callService.delete(${id}):`, error);
+      throw error;
+    }
+  },
 };
 
 export const recordingService = {
-  getAll: () => api.get(API_ENDPOINTS.RECORDINGS.BASE),
-  getById: (id: string) => api.get(API_ENDPOINTS.RECORDINGS.BY_ID(id)),
-  download: (id: string) => api.download(API_ENDPOINTS.RECORDINGS.DOWNLOAD(id)),
-  upload: (file: File, onUploadProgress?: (progressEvent: AxiosProgressEvent) => void) => 
-    api.upload<{ success: boolean; url: string }>(API_ENDPOINTS.RECORDINGS.UPLOAD, file, 'file', onUploadProgress),
-  delete: (id: string) => api.delete(API_ENDPOINTS.RECORDINGS.BY_ID(id)),
+  getAll: (params?: { call_id?: number }) => 
+    api.get<RecordingsResponse>(API_ENDPOINTS.RECORDINGS.BASE, { params }),
+  getById: (id: string) => api.get<RecordingResponse>(API_ENDPOINTS.RECORDINGS.BY_ID(id)),
+  download: (id: string) => api.download<Blob>(API_ENDPOINTS.RECORDINGS.DOWNLOAD(id)),
+  upload: (file: File, callId: number, onUploadProgress?: (progressEvent: AxiosProgressEvent) => void) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('call_id', callId.toString());
+    
+    return api.upload<RecordingResponse>(
+      API_ENDPOINTS.RECORDINGS.UPLOAD, 
+      formData, 
+      'file', 
+      onUploadProgress
+    );
+  },
+  delete: (id: string) => api.delete<ApiResponse<{}>>(API_ENDPOINTS.RECORDINGS.BY_ID(id)),
 };
 
 export default api;

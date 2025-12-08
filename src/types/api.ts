@@ -62,3 +62,40 @@ export interface UpdateUserRequest {
 // Types pour les réponses
 export type UserResponse = ApiResponse<User>;
 export type UsersResponse = ApiResponse<User[]>;
+
+// Types pour les appels
+export interface Call {
+  id: number;
+  phone_number: string;
+  duration: number;
+  status: 'answered' | 'missed' | 'rejected' | 'no_answer';
+  decision: 'interested' | 'not_interested' | 'call_back' | null;
+  notes: string | null;
+  client_id: number | null;
+  commercial_id: number;
+  call_date: string;
+  call_type?: 'incoming' | 'outgoing'; // Pour la compatibilité avec le frontend existant
+  has_recording?: boolean; // Indique si un enregistrement existe pour cet appel
+}
+
+export interface Recording {
+  id: number;
+  file_size: number;
+  uploaded_at: string;
+  filename: string;
+  file_path: string;
+  duration: number;
+  call_id: number;
+  call?: Call; // Appel associé à l'enregistrement
+}
+
+export interface CallWithRecording extends Call {
+  recording?: Recording;
+}
+
+export type CallResponse = ApiResponse<Call>;
+export interface CallsResponse extends ApiResponse<Call[]> {
+  total?: number;
+}
+export type RecordingResponse = ApiResponse<Recording>;
+export type RecordingsResponse = ApiResponse<Recording[]>;
