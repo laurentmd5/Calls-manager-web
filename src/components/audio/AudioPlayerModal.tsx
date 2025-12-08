@@ -126,6 +126,9 @@ export const AudioPlayerModal = ({
     return formatDuration(Math.floor(time));
   };
 
+  // Utiliser la durée réelle de l'audio si disponible, sinon utiliser celle des données d'appel
+  const displayDuration = duration > 0 ? duration : (callData?.duration || 0);
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
@@ -143,7 +146,7 @@ export const AudioPlayerModal = ({
             <div className="space-y-1">
               <p className="font-medium">Appel avec {callData.phoneNumber}</p>
               <p className="text-sm text-muted-foreground">
-                {new Date(callData.date).toLocaleString('fr-FR')} • {formatTime(callData.duration)}
+                {new Date(callData.date).toLocaleString('fr-FR')} • {formatTime(displayDuration)}
               </p>
             </div>
           )}
