@@ -37,6 +37,7 @@ import useCommercials from '@/hooks/useCommercials';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { AudioPlayerModal } from '@/components/audio/AudioPlayerModal';
+import { AudioDuration } from '@/components/audio/AudioDuration';
 
 const statusConfig: Record<CallStatus, { label: string; variant: 'default' | 'destructive' | 'outline' | 'secondary' }> = {
   answered: { label: 'Répondu', variant: 'default' },
@@ -325,7 +326,14 @@ export const CallsTable = () => {
                     {format(parseISO(call.call_date), 'dd MMM yyyy HH:mm', { locale: fr })}
                   </TableCell>
                   <TableCell>
-                    {formatDuration(call.duration)}
+                    {call.has_recording ? (
+                      <AudioDuration 
+                        audioUrl={`http://127.0.0.1:8000/api/v1/recordings/by-call/${call.id}/play`}
+                        fallbackDuration={call.duration}
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={statusConfig[call.status]?.variant || 'outline'}>

@@ -47,6 +47,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { userService } from '@/services/api';
 import { mapApiUserToAppUser } from '@/utils/userUtils';
+import { formatDuration } from '@/lib/utils';
 
 interface NewUser extends Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'rating' | 'totalCalls' | 'answeredCalls' | 'totalDuration'> {
   password: string;
@@ -74,11 +75,7 @@ export const CommercialsTable = ({ users, onUpdate, showInactive }: CommercialsT
     confirmPassword: '',
   });
 
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${mins}m`;
-  };
+  // La fonction formatDuration est maintenant importée depuis @/lib/utils
 
   const toggleUserStatus = async (userId: number) => {
     const user = users.find(u => u.id === userId);
@@ -361,7 +358,9 @@ export const CommercialsTable = ({ users, onUpdate, showInactive }: CommercialsT
                         {responseRate}%
                       </Badge>
                     </TableCell>
-                    <TableCell>{formatDuration(user.totalDuration || 0)}</TableCell>
+                    <TableCell>
+                      {user.totalDuration ? formatDuration(user.totalDuration) : '-'}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
