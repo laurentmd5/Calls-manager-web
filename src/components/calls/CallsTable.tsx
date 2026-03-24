@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -21,384 +21,431 @@ import {
   PhoneIncoming,
   PhoneOutgoing,
   Play,
-  Pause,
-  Download,
+  MicOff,
   Search,
-  Loader2,
-  AlertCircle
+  ChevronDown,
+  AlertCircle,
 } from 'lucide-react';
-import { CallStatus } from '@/types';
-import { Call } from '@/types/api';
-import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
-import useCalls from '@/hooks/useCalls';
-import useCommercials from '@/hooks/useCommercials';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useToast } from '@/components/ui/use-toast';
-import { AudioPlayerModal } from '@/components/audio/AudioPlayerModal';
-import { AudioDuration } from '@/components/audio/AudioDuration';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { cn } from '@/lib/utils'
+import { format } from 'date-fns'
+import { fr } from 'date-fns/locale'
+import { useCallsWithDetails } from '@/hooks/useCallsWithDetails'
+import { AudioPlayerModal } from '@/components/audio/AudioPlayerModal'
+import type { EnrichedCall } from '@/hooks/useCallsWithDetails'
 
-const statusConfig: Record<CallStatus, { label: string; variant: 'default' | 'destructive' | 'outline' | 'secondary' }> = {
-  answered: { label: 'Répondu', variant: 'default' },
-  missed: { label: 'Manqué', variant: 'destructive' },
-  rejected: { label: 'Rejeté', variant: 'secondary' },
-  no_answer: { label: 'Sans réponse', variant: 'outline' },
-};
+// Decision badge color mapping
+const decisionColorConfig: Record<string, string> = {
+  INTERESTED: 'bg-green-100 text-green-800 border-green-300',
+  CALL_BACK: 'bg-blue-100 text-blue-800 border-blue-300',
+  NOT_INTERESTED: 'bg-gray-100 text-gray-800 border-gray-300',
+  WRONG_NUMBER: 'bg-red-100 text-red-800 border-red-300',
+  NO_ANSWER: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+}
 
-type DecisionType = 'interested' | 'not_interested' | 'call_back';
-type DecisionWithUndefined = DecisionType | 'undefined';
-
-const decisionConfig = {
-  interested: { label: 'Intéressé', variant: 'default' as const },
-  not_interested: { label: 'Non intéressé', variant: 'destructive' as const },
-  call_back: { label: 'Rappeler', variant: 'secondary' as const },
-  undefined: { label: 'Non défini', variant: 'outline' as const },
-};
+const decisionLabelConfig: Record<string, string> = {
+  INTERESTED: 'Intéressé',
+  CALL_BACK: 'Rappeler',
+  NOT_INTERESTED: 'Non intéressé',
+  WRONG_NUMBER: 'Mauvais numéro',
+  NO_ANSWER: 'Sans réponse',
+}
 
 export const CallsTable = () => {
-  const { toast } = useToast();
-  const { calls, loading, error, fetchCalls, updateCall } = useCalls();
-  
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [audioModalOpen, setAudioModalOpen] = useState(false);
-  const [currentAudio, setCurrentAudio] = useState<{
-    src: string;
-    call: Call;
-  } | null>(null);
-  const [updatingCalls, setUpdatingCalls] = useState<Record<number, boolean>>({});
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [playingId, setPlayingId] = useState<number | null>(null);
+  const { enrichedCalls, isLoading, error, refetch } = useCallsWithDetails()
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [decisionFilter, setDecisionFilter] = useState('all')
+  const [expandedRowId, setExpandedRowId] = useState<number | null>(null)
+  const [audioModalOpen, setAudioModalOpen] = useState(false)
+  const [selectedCall, setSelectedCall] = useState<EnrichedCall | null>(null)
 
-  const formatDuration = (seconds: number) => {
-    if (!seconds) return '-';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  // Filtering and sorting with useMemo
+  const processedCalls = useMemo(() => {
+    let filtered = enrichedCalls
 
-  const { getCommercialName } = useCommercials();
-
-  const handleDecisionChange = async (callId: number, decision: DecisionType | null | 'undefined') => {
-    // Convertir 'undefined' en null pour l'API
-    const decisionForApi = decision === 'undefined' ? null : decision;
-    try {
-      setUpdatingCalls(prev => ({ ...prev, [callId]: true }));
-      await updateCall(callId, { decision: decisionForApi as DecisionType | null });
-      
-      toast({
-        title: 'Succès',
-        description: 'La décision a été mise à jour avec succès.',
-        variant: 'default',
-      });
-    } catch (error) {
-      console.error('Error updating call decision:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Une erreur est survenue lors de la mise à jour de la décision.',
-        variant: 'destructive',
-      });
-    } finally {
-      setUpdatingCalls(prev => ({ ...prev, [callId]: false }));
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(
+        call => call.status?.toUpperCase() === statusFilter.toUpperCase()
+      )
     }
-  };
 
-  // Afficher les données brutes pour le débogage
-  useEffect(() => {
-    console.log('Appels chargés:', calls);
-    console.log('Filtres actuels:', { search, statusFilter });
-  }, [calls, search, statusFilter]);
+    // Decision filter
+    if (decisionFilter !== 'all') {
+      filtered = filtered.filter(
+        call => call.decision?.toUpperCase() === decisionFilter.toUpperCase()
+      )
+    }
 
-  const filteredCalls = calls.filter(call => {
-    try {
-      // Vérifier si call.phone_number existe avant d'appeler toLowerCase()
-      const phoneNumber = call.phone_number || '';
-      const searchTerm = search.toLowerCase();
-      const matchesSearch = phoneNumber.toString().toLowerCase().includes(searchTerm);
-      
-      // Normaliser le statut pour la comparaison
-      const callStatus = call.status?.toLowerCase() || '';
-      const matchesStatus = statusFilter === 'all' || callStatus === statusFilter.toLowerCase();
-      
-      // Log de débogage détaillé
-      const debugInfo = {
-        callId: call.id,
-        phoneNumber,
-        callStatus,
-        statusFilter,
-        matchesSearch,
-        matchesStatus,
-        searchTerm
-      };
-      
-      console.log('Filtrage - Détails:', debugInfo);
-      
-      return matchesSearch && matchesStatus;
-    } catch (error) {
-      console.error('Erreur lors du filtrage des appels:', error, call);
-      return false;
+    // Search filter (commercial name or phone number)
+    if (search.trim()) {
+      const searchLower = search.toLowerCase()
+      filtered = filtered.filter(
+        call =>
+          call.commercialName.toLowerCase().includes(searchLower) ||
+          call.phoneNumber.toLowerCase().includes(searchLower)
+      )
     }
-  });
-  
-  // Afficher un message si aucun appel ne correspond aux filtres
-  useEffect(() => {
-    if (calls.length > 0 && filteredCalls.length === 0 && !loading) {
-      console.log('Aucun appel ne correspond aux critères de recherche.');
-    }
-  }, [calls, filteredCalls, loading]);
 
-  const handlePlayAudio = (call: Call) => {
-    if (!call.has_recording) {
-      toast({
-        title: 'Information',
-        description: 'Aucun enregistrement disponible pour cet appel',
-        variant: 'default',
-      });
-      return;
-    }
-    
-    const audioUrl = `http://127.0.0.1:8000/api/v1/recordings/by-call/${call.id}/play?token=${localStorage.getItem('access_token')}`;
-    
-    setCurrentAudio({
-      src: audioUrl,
-      call: {
-        ...call,
-        phone_number: call.phone_number || 'Numéro inconnu',
-        call_date: call.call_date || new Date().toISOString(),
-        duration: call.duration || 0,
-      },
-    });
-    setAudioModalOpen(true);
-  };
+    // Sort by callDate descending (most recent first)
+    return filtered.sort(
+      (a, b) => new Date(b.callDate).getTime() - new Date(a.callDate).getTime()
+    )
+  }, [enrichedCalls, search, statusFilter, decisionFilter])
 
-  const handleCloseAudioModal = () => {
-    setAudioModalOpen(false);
-    setCurrentAudio(null);
-  };
+  const handlePlayClick = (call: EnrichedCall) => {
+    if (!call.hasRecording) return
+    setSelectedCall(call)
+    setAudioModalOpen(true)
+  }
 
-  const handleDownload = async (call: Call) => {
-    if (!call.has_recording) {
-      toast({
-        title: 'Information',
-        description: 'Aucun enregistrement disponible pour cet appel',
-        variant: 'default',
-      });
-      return;
-    }
-    
-    try {
-      // Télécharger l'enregistrement
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/recordings/by-call/${call.id}/download?token=${localStorage.getItem('access_token')}`,
-        {
-          headers: {
-            'Accept': 'audio/*',
-          },
-        }
-      );
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Erreur lors du téléchargement');
-      }
-      
-      // Obtenir le nom du fichier depuis les en-têtes de la réponse ou utiliser une valeur par défaut
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = `enregistrement-${call.id}.mp3`;
-      
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
-        if (filenameMatch && filenameMatch[1]) {
-          filename = filenameMatch[1];
-        }
-      }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-      
-      toast({
-        title: 'Téléchargement réussi',
-        description: 'L\'enregistrement a été téléchargé avec succès',
-        variant: 'default',
-      });
-    } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Une erreur est survenue lors du téléchargement de l\'enregistrement',
-        variant: 'destructive',
-      });
-    }
-  };
+  const handleCloseModal = () => {
+    setAudioModalOpen(false)
+    setSelectedCall(null)
+  }
+
+  // Get unique statuses for filter dropdown
+  const uniqueStatuses = Array.from(
+    new Set(enrichedCalls.map(c => c.status?.toUpperCase()).filter(Boolean))
+  ).sort()
+
+  // Get unique decisions for filter dropdown
+  const uniqueDecisions = Array.from(
+    new Set(enrichedCalls.map(c => c.decision?.toUpperCase()).filter(Boolean))
+  ).sort()
 
   if (error) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Erreur</AlertTitle>
-        <AlertDescription>
-          {error}
-        </AlertDescription>
+        <AlertDescription>{error}</AlertDescription>
       </Alert>
-    );
+    )
   }
 
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col gap-4 md:flex-row">
+        {/* Search filter */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher par numéro..."
+            placeholder="Rechercher par commercial ou numéro..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
             className="pl-10"
           />
         </div>
+
+        {/* Status filter */}
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full md:w-[150px]">
             <SelectValue placeholder="Statut" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les statuts</SelectItem>
-            <SelectItem value="answered">Répondus</SelectItem>
-            <SelectItem value="missed">Manqués</SelectItem>
-            <SelectItem value="rejected">Rejetés</SelectItem>
-            <SelectItem value="no_answer">Sans réponse</SelectItem>
+            {uniqueStatuses.map(status => (
+              <SelectItem key={status} value={status}>
+                {status.charAt(0) + status.slice(1).toLowerCase()}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Decision filter */}
+        <Select value={decisionFilter} onValueChange={setDecisionFilter}>
+          <SelectTrigger className="w-full md:w-[150px]">
+            <SelectValue placeholder="Décision" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Toutes les décisions</SelectItem>
+            {uniqueDecisions.map(decision => (
+              <SelectItem key={decision} value={decision}>
+                {decisionLabelConfig[decision] || decision}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
       {/* Table */}
       <div className="rounded-lg border bg-card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead>Type</TableHead>
-              <TableHead>Numéro</TableHead>
-              <TableHead>Commercial</TableHead>
-              <TableHead>Date & Heure</TableHead>
-              <TableHead>Durée</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Décision</TableHead>
-              <TableHead>Notes</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && !calls.length ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <p className="text-muted-foreground">Chargement des appels...</p>
-                  </div>
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="w-[180px]">Commercial</TableHead>
+                <TableHead className="w-[130px]">Client</TableHead>
+                <TableHead className="w-[160px]">Date & Heure</TableHead>
+                <TableHead className="w-[80px]">Durée</TableHead>
+                <TableHead className="w-[100px]">Décision</TableHead>
+                <TableHead className="flex-1 min-w-[200px]">Notes</TableHead>
+                <TableHead className="w-[80px] text-center">Écoute</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
-            ) : filteredCalls.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                  Aucun appel trouvé
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredCalls.map((call) => (
-                <TableRow key={call.id} className="hover:bg-muted/30">
-                  <TableCell>
-                    <PhoneOutgoing className="h-4 w-4 text-accent-foreground" />
-                  </TableCell>
-                  <TableCell className="font-medium">{call.phone_number}</TableCell>
-                  <TableCell>
-                    <div className="font-medium">
-                      {call.commercial ? `${call.commercial.first_name} ${call.commercial.last_name}` : `Commercial #${call.commercial_id}`}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                // Skeleton loading placeholders
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <TableRow key={`skeleton-${idx}`}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <Skeleton className="h-4 w-32" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-16" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-6 w-20" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-48" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-8 w-8" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-8 w-8" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : processedCalls.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <p className="text-muted-foreground">
+                        {enrichedCalls.length === 0
+                          ? 'Aucun appel trouvé'
+                          : 'Aucun appel ne correspond aux filtres'}
+                      </p>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {format(parseISO(call.call_date), 'dd MMM yyyy HH:mm', { locale: fr })}
-                  </TableCell>
-                  <TableCell>
-                    {call.has_recording ? (
-                      <AudioDuration 
-                        audioUrl={`http://127.0.0.1:8000/api/v1/recordings/by-call/${call.id}/play`}
-                        fallbackDuration={call.duration}
-                      />
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusConfig[call.status]?.variant || 'outline'}>
-                      {statusConfig[call.status]?.label || call.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {call.decision ? (
-                      <Badge 
-                        variant={decisionConfig[call.decision as DecisionType]?.variant || 'outline'}
-                        className={cn({
-                          'bg-green-500 hover:bg-green-600': call.decision === 'interested',
-                          'bg-red-500 hover:bg-red-600': call.decision === 'not_interested',
-                          'bg-blue-500 hover:bg-blue-600': call.decision === 'call_back',
-                        })}
-                      >
-                        {decisionConfig[call.decision as DecisionType]?.label || call.decision}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Non défini</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-[200px] truncate">
-                    {call.notes || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handlePlayAudio(call)}
-                      disabled={!call.has_recording}
-                    >
-                      <Play className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDownload(call)}
-                      disabled={!call.has_recording}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                <>
+                  {processedCalls.map(call => (
+                    <TooltipProvider key={call.id}>
+                      {/* Main row */}
+                      <TableRow className="hover:bg-muted/30">
+                        {/* Commercial column */}
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage
+                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${call.commercialName}`}
+                              />
+                              <AvatarFallback>
+                                {call.commercialName
+                                  .split(' ')
+                                  .map(n => n[0])
+                                  .join('')
+                                  .toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="truncate">{call.commercialName}</span>
+                          </div>
+                        </TableCell>
+
+                        {/* Client number with icon */}
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <PhoneIncoming className="h-4 w-4 text-muted-foreground" />
+                            <span className="truncate">{call.phoneNumber}</span>
+                          </div>
+                        </TableCell>
+
+                        {/* Date & Time */}
+                        <TableCell className="text-sm">
+                          {format(new Date(call.callDate), 'dd MMM yyyy à HH:mm', {
+                            locale: fr,
+                          })}
+                        </TableCell>
+
+                        {/* Duration */}
+                        <TableCell className="text-sm">
+                          {call.duration
+                            ? `${Math.floor(call.duration / 60)}:${(call.duration % 60)
+                                .toString()
+                                .padStart(2, '0')}`
+                            : '-'}
+                        </TableCell>
+
+                        {/* Decision */}
+                        <TableCell>
+                          {call.decision ? (
+                            <Badge
+                              className={cn(
+                                'border',
+                                decisionColorConfig[call.decision] ||
+                                  'bg-gray-100 text-gray-800 border-gray-300'
+                              )}
+                            >
+                              {decisionLabelConfig[call.decision] || call.decision}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">
+                              -
+                            </Badge>
+                          )}
+                        </TableCell>
+
+                        {/* Notes (truncated) */}
+                        <TableCell className="text-sm">
+                          {call.notes ? (
+                            <Tooltip>
+                              <TooltipTrigger className="text-left truncate max-w-xs hover:underline">
+                                {call.notes.substring(0, 60)}
+                                {call.notes.length > 60 ? '...' : ''}
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-md">
+                                <p className="whitespace-pre-wrap break-words">{call.notes}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-muted-foreground italic">
+                              Pas de notes
+                            </span>
+                          )}
+                        </TableCell>
+
+                        {/* Listen/Play button */}
+                        <TableCell className="text-center">
+                          {call.hasRecording ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handlePlayClick(call)}
+                                  className="h-8 w-8 text-primary hover:text-primary/80"
+                                >
+                                  <Play className="h-4 w-4 fill-current" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Écouter l'enregistrement</TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex justify-center">
+                                  <MicOff className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Pas d'enregistrement disponible
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </TableCell>
+
+                        {/* Expand button */}
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              setExpandedRowId(
+                                expandedRowId === call.id ? null : call.id
+                              )
+                            }
+                            className="h-8 w-8"
+                          >
+                            <ChevronDown
+                              className={cn(
+                                'h-4 w-4 transition-transform',
+                                expandedRowId === call.id ? 'rotate-180' : ''
+                              )}
+                            />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Expandable row for full notes and coaching button */}
+                      {expandedRowId === call.id && (
+                        <TableRow className="bg-muted/20">
+                          <TableCell colSpan={8} className="py-4">
+                            <div className="space-y-3">
+                              <div>
+                                <h4 className="font-semibold text-sm mb-2">
+                                  Notes complètes :
+                                </h4>
+                                <div className="bg-white dark:bg-slate-950 p-3 rounded border text-sm italic">
+                                  {call.notes ? (
+                                    <p className="whitespace-pre-wrap break-words">
+                                      {call.notes}
+                                    </p>
+                                  ) : (
+                                    <p className="text-muted-foreground">
+                                      Ce commercial n'a pas laissé de notes
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  className="bg-accent hover:bg-accent/90"
+                                  onClick={() => handlePlayClick(call)}
+                                  disabled={!call.hasRecording}
+                                >
+                                  <Play className="h-3 w-3 mr-1 fill-current" />
+                                  Écouter l'appel
+                                </Button>
+                                <Button size="sm" variant="outline">
+                                  Marquer pour coaching
+                                </Button>
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TooltipProvider>
+                  ))}
+                </>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
+      {/* Results summary */}
       <p className="text-sm text-muted-foreground">
-        {filteredCalls.length} appel(s) trouvé(s) sur {calls.length} au total
+        {processedCalls.length} appel(s) affiché(s) sur {enrichedCalls.length} au total
       </p>
-      
-      {/* Modal de lecture audio */}
-      <AudioPlayerModal
-        isOpen={audioModalOpen}
-        onClose={handleCloseAudioModal}
-        audioSrc={currentAudio?.src || null}
-        callData={currentAudio ? {
-          phoneNumber: currentAudio.call.phone_number,
-          date: currentAudio.call.call_date,
-          duration: currentAudio.call.duration || 0,
-        } : undefined}
-      />
+
+      {/* Audio Player Modal */}
+      {selectedCall && (
+        <AudioPlayerModal
+          isOpen={audioModalOpen}
+          onClose={handleCloseModal}
+          audioSrc={selectedCall.audioUrl}
+          commercialName={selectedCall.commercialName}
+          callDate={selectedCall.callDate}
+          decision={selectedCall.decision}
+          notes={selectedCall.notes}
+          duration={selectedCall.duration}
+        />
+      )}
     </div>
-  );
-};
+  )
+}

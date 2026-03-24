@@ -1,18 +1,55 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Star, TrendingUp } from 'lucide-react';
-import { User } from '@/types';
 import { cn } from '@/lib/utils';
+import { useMemo } from 'react';
+import type { EnrichedCall } from '@/hooks/useCallsWithDetails';
 
 interface TopPerformersProps {
-  users: User[];
+  enrichedCalls: EnrichedCall[];
 }
 
-export const TopPerformers = ({ users }: TopPerformersProps) => {
-  const sortedUsers = [...users]
-    .filter(u => u.isActive)
-    .sort((a, b) => (b.answeredCalls || 0) - (a.answeredCalls || 0))
-    .slice(0, 5);
+export const TopPerformers = ({ enrichedCalls }: TopPerformersProps) => {
+  // Calculer les performances par commercial à partir des données enrichies
+  const topPerformers = useMemo(() => {
+    const commercialStats: Record<string, {
+      name: string;
+      answeredCalls: number;
+      totalCalls: number;
+      totalDuration: number;
+    }> = {};
+
+    enrichedCalls.forEach(call => {
+      if (!commercialStats[call.commercialName]) {
+        commercialStats[call.commercialName] = {
+          name: call.commercialName,
+          answeredCalls: 0,
+          totalCalls: 0,
+          totalDuration: 0,
+        };
+      }
+
+      commercialStats[call.commercialName].totalCalls += 1;
+      commercialStats[call.commercialName].totalDuration += call.duration || 0;
+      
+      if (call.status?.toUpperCase() === 'ANSWERED') {
+        commercialStats[call.commercialName].answeredCalls += 1;
+      }
+    });
+
+    // Convertir en tableau et calculer les ratings
+    const performers = Object.values(commercialStats)
+      .map(stat => ({
+        ...stat,
+        rating: stat.totalCalls > 0 ? (stat.answeredCalls / stat.totalCalls) * 5 : 0,
+      }))
+      .sort((a, b) => b.answeredCalls - a.answeredCalls)
+      .slice(0, 5);
+
+    return performers;
+  }, [enrichedCalls]);
+
+  const sortedUsers = topPerformers;
 
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -47,24 +84,24 @@ export const TopPerformers = ({ users }: TopPerformersProps) => {
             </div>
             <Avatar className="h-10 w-10">
               <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                {user.firstName[0]}{user.lastName[0]}
+                {user.name.split(' ').map((n: string) => n[0]).join('')}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-foreground truncate">
-                {user.firstName} {user.lastName}
+                {user.name}
               </p>
               <p className="text-sm text-muted-foreground">
-                {user.answeredCalls} appels répondus
+                {user.answeredCalls}/{user.totalCalls} appels répondus
               </p>
             </div>
             <div className="text-right">
               <div className="flex items-center gap-1">
                 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="font-medium">{user.rating?.toFixed(1)}</span>
+                <span className="font-medium">{user.rating.toFixed(1)}</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                {formatDuration(user.totalDuration || 0)}
+                {formatDuration(user.totalDuration)}
               </p>
             </div>
           </div>

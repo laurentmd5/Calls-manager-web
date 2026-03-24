@@ -4,6 +4,8 @@ import { Slider } from '@/components/ui/slider';
 import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, X } from 'lucide-react';
 import { formatDuration } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface AudioPlayerModalProps {
   isOpen: boolean;
@@ -14,6 +16,11 @@ interface AudioPlayerModalProps {
     date: string;
     duration: number;
   };
+  // Coaching context props
+  commercialName?: string;
+  callDate?: Date;
+  decision?: string | null;
+  notes?: string | null;
 }
 
 export const AudioPlayerModal = ({
@@ -21,6 +28,10 @@ export const AudioPlayerModal = ({
   onClose,
   audioSrc,
   callData,
+  commercialName,
+  callDate,
+  decision,
+  notes,
 }: AudioPlayerModalProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -126,15 +137,12 @@ export const AudioPlayerModal = ({
     return formatDuration(Math.floor(time));
   };
 
-  // Utiliser la durée réelle de l'audio si disponible, sinon utiliser celle des données d'appel
-  const displayDuration = duration > 0 ? duration : (callData?.duration || 0);
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex justify-between items-center">
-            <DialogTitle>Lecteur audio</DialogTitle>
+            <DialogTitle>Écoute & Coaching</DialogTitle>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
@@ -142,14 +150,52 @@ export const AudioPlayerModal = ({
         </DialogHeader>
         
         <div className="space-y-4">
-          {callData && (
-            <div className="space-y-1">
-              <p className="font-medium">Appel avec {callData.phoneNumber}</p>
-              <p className="text-sm text-muted-foreground">
-                {new Date(callData.date).toLocaleString('fr-FR')} • {formatTime(displayDuration)}
-              </p>
+          {/* Call Context Card - TOP SECTION */}
+          {(commercialName || callDate || decision) && (
+            <div className="bg-muted p-4 rounded-lg space-y-2 border">
+              <div>
+                <p className="font-semibold text-sm">
+                  Appel de <span className="font-bold">{commercialName}</span>
+                </p>
+              </div>
+              <div className="text-sm text-muted-foreground space-y-1">
+                {callData?.phoneNumber && <p>{callData.phoneNumber}</p>}
+                {callDate && (
+                  <p>
+                    {callDate.toLocaleString('fr-FR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                )}
+              </div>
+              {decision && (
+                <div className="pt-2">
+                  <Badge
+                    className={cn({
+                      'bg-green-500 hover:bg-green-600': decision === 'INTERESTED',
+                      'bg-blue-500 hover:bg-blue-600': decision === 'CALL_BACK',
+                      'bg-gray-500 hover:bg-gray-600': decision === 'NOT_INTERESTED',
+                      'bg-yellow-500 hover:bg-yellow-600': decision === 'NO_ANSWER',
+                      'bg-red-500 hover:bg-red-600': decision === 'WRONG_NUMBER',
+                    })}
+                  >
+                    {decision === 'INTERESTED' && 'Intéressé'}
+                    {decision === 'CALL_BACK' && 'À rappeler'}
+                    {decision === 'NOT_INTERESTED' && 'Pas intéressé'}
+                    {decision === 'NO_ANSWER' && 'Pas de réponse'}
+                    {decision === 'WRONG_NUMBER' && 'Mauvais numéro'}
+                    {!['INTERESTED', 'CALL_BACK', 'NOT_INTERESTED', 'NO_ANSWER', 'WRONG_NUMBER'].includes(decision) && decision}
+                  </Badge>
+                </div>
+              )}
             </div>
           )}
+          
+          {/* MIDDLE SECTION - Audio player */}
           
           <div className="space-y-2">
             <div className="flex items-center justify-center space-x-4">
@@ -205,6 +251,20 @@ export const AudioPlayerModal = ({
                 className="w-24"
               />
             </div>
+          </div>
+
+          {/* BOTTOM SECTION - Notes panel */}
+          <div className="mt-4 pt-4 border-t space-y-2">
+            <p className="text-sm font-medium">Notes du commercial</p>
+            {notes && notes.trim() ? (
+              <div className="bg-muted p-3 rounded text-sm max-h-[120px] overflow-y-auto whitespace-pre-wrap">
+                {notes}
+              </div>
+            ) : (
+              <div className="bg-muted p-3 rounded text-sm text-muted-foreground italic">
+                Ce commercial n'a pas laissé de notes
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

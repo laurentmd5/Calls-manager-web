@@ -9,9 +9,49 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { weeklyCallsData } from '@/data/mockData';
+import { useMemo } from 'react';
+import type { EnrichedCall } from '@/hooks/useCallsWithDetails';
+import { format, subDays, startOfDay } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
-export const CallsChart = () => {
+interface CallsChartProps {
+  enrichedCalls: EnrichedCall[];
+}
+
+export const CallsChart = ({ enrichedCalls }: CallsChartProps) => {
+  // Générer les données de la semaine dernière à partir des appels réels
+  const chartData = useMemo(() => {
+    // Initialiser les données pour les 7 derniers jours
+    const data: Array<{ day: string; date: Date; answered: number; missed: number }> = [];
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = startOfDay(subDays(new Date(), i));
+      data.push({
+        day: format(date, 'eee', { locale: fr }),
+        date,
+        answered: 0,
+        missed: 0,
+      });
+    }
+
+    // Remplir avec les données réelles
+    enrichedCalls.forEach(call => {
+      const callDate = startOfDay(new Date(call.callDate));
+      const dayData = data.find(
+        d => d.date.getTime() === callDate.getTime()
+      );
+
+      if (dayData) {
+        if (call.status?.toUpperCase() === 'ANSWERED') {
+          dayData.answered += 1;
+        } else {
+          dayData.missed += 1;
+        }
+      }
+    });
+
+    return data.map(({ day, ...rest }) => ({ day, ...rest }));
+  }, [enrichedCalls]);
   return (
     <Card className="border-0 shadow-md">
       <CardHeader className="pb-2">
