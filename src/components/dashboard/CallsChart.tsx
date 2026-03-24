@@ -35,20 +35,22 @@ export const CallsChart = ({ enrichedCalls }: CallsChartProps) => {
     }
 
     // Remplir avec les données réelles
-    enrichedCalls.forEach(call => {
-      const callDate = startOfDay(new Date(call.callDate));
-      const dayData = data.find(
-        d => d.date.getTime() === callDate.getTime()
-      );
+    if (enrichedCalls && enrichedCalls.length > 0) {
+      enrichedCalls.forEach(call => {
+        const callDate = startOfDay(new Date(call.callDate));
+        const dayData = data.find(
+          d => d.date.getTime() === callDate.getTime()
+        );
 
-      if (dayData) {
-        if (call.status?.toUpperCase() === 'ANSWERED') {
-          dayData.answered += 1;
-        } else {
-          dayData.missed += 1;
+        if (dayData) {
+          if (call.status?.toUpperCase() === 'ANSWERED') {
+            dayData.answered += 1;
+          } else {
+            dayData.missed += 1;
+          }
         }
-      }
-    });
+      });
+    }
 
     return data.map(({ day, ...rest }) => ({ day, ...rest }));
   }, [enrichedCalls]);
@@ -60,7 +62,7 @@ export const CallsChart = ({ enrichedCalls }: CallsChartProps) => {
       <CardContent>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={weeklyCallsData}>
+            <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="colorAnswered" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />

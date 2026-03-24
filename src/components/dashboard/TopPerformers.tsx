@@ -12,6 +12,10 @@ interface TopPerformersProps {
 export const TopPerformers = ({ enrichedCalls }: TopPerformersProps) => {
   // Calculer les performances par commercial à partir des données enrichies
   const topPerformers = useMemo(() => {
+    if (!enrichedCalls || enrichedCalls.length === 0) {
+      return [];
+    }
+
     const commercialStats: Record<string, {
       name: string;
       answeredCalls: number;

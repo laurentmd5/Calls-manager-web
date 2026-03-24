@@ -10,7 +10,6 @@ import {
   Timer,
   TrendingUp,
 } from 'lucide-react';
-import { mockUsers } from '@/data/mockData';
 import { CallsTable } from '@/components/calls/CallsTable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMemo } from 'react';
@@ -102,9 +101,9 @@ const Dashboard = () => {
       {/* Charts & Top Performers */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-2">
-          <CallsChart />
+          <CallsChart enrichedCalls={enrichedCalls} />
         </div>
-        <TopPerformers users={mockUsers} />
+        <TopPerformers enrichedCalls={enrichedCalls} />
       </div>
 
       {/* Recent Calls */}
