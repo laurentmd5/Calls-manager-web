@@ -143,52 +143,25 @@ const Commercials = () => {
     setIsSubmitting(true);
 
     try {
-      // Récupérer le token automatiquement depuis localStorage
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        setCreateError('Erreur d\'authentification: token manquant');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Créer la requête POST avec les données du formulaire
-      const response = await fetch('http://127.0.0.1:8000/api/v1/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone_number: formData.phoneNumber || null,
-          role: 'COMMERCIAL',
-        }),
+      // Utiliser le service API qui gère automatiquement le token via les intercepteurs
+      const response = await userService.create({
+        email: formData.email,
+        password: formData.password,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        phone_number: formData.phoneNumber || null,
+        role: 'commercial',
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.detail || 'Une erreur est survenue lors de la création du commercial';
-        setCreateError(errorMessage);
-        return;
-      }
+      // Diagnostique: vérifier la structure de la réponse
+      console.log('Structure complète response:', response);
+      console.log('response.data:', response.data);
+      console.log('Type de response.data:', typeof response.data);
+      
 
-      const createdUser = await response.json();
-      console.log('Commercial créé:', createdUser);
-
-      // Ajouter l'utilisateur créé à la liste
-      const newUser: User = {
-        id: createdUser.id,
-        email: createdUser.email,
-        firstName: createdUser.first_name,
-        lastName: createdUser.last_name,
-        phoneNumber: createdUser.phone_number,
-        role: 'commercial',
-        isActive: createdUser.is_active || true,
-        createdAt: createdUser.created_at || new Date().toISOString(),
-      };
+      // Le backend retourne directement l'objet User (pas un wrapper ApiResponse)
+      const newUser = mapApiUsersToAppUsers([response.data])[0];
+      console.log('Commercial créé:', newUser);
 
       setUsers(prevUsers => [newUser, ...prevUsers]);
 
@@ -301,7 +274,7 @@ const Commercials = () => {
 
       {/* Create Commercial Modal */}
       <Dialog open={isCreateModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Nouveau commercial</DialogTitle>
             <DialogDescription>
@@ -309,7 +282,7 @@ const Commercials = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-3 py-2 sm:space-y-4 sm:py-4">
             {createError && (
               <div className="p-3 bg-destructive/10 text-destructive rounded text-sm">
                 {createError}
@@ -389,18 +362,19 @@ const Commercials = () => {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 flex-col-reverse sm:flex-row">
             <Button 
               variant="outline" 
               onClick={handleCloseModal}
               disabled={isSubmitting}
+              className="w-full sm:w-auto"
             >
               Annuler
             </Button>
             <Button 
               onClick={handleCreateCommercial}
               disabled={isSubmitting}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {isSubmitting ? 'Création...' : 'Créer'}

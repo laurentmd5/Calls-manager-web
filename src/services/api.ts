@@ -261,7 +261,7 @@ export const userService = {
   getInactiveUsers: () => api.get<UsersResponse>(API_ENDPOINTS.USERS.INACTIVE),
   getById: (id: string) => api.get<UserResponse>(API_ENDPOINTS.USERS.BY_ID(id)),
   create: (userData: RegisterRequest) => 
-    api.post<UserResponse>(API_ENDPOINTS.USERS.BASE, userData),
+    api.post<User>(API_ENDPOINTS.USERS.BASE, userData),
   update: (id: string, userData: UpdateUserRequest) => 
     api.put<ApiResponse<User>>(API_ENDPOINTS.USERS.BY_ID(id), userData),
   delete: (id: string) => api.delete<{ success: boolean }>(API_ENDPOINTS.USERS.BY_ID(id)),
