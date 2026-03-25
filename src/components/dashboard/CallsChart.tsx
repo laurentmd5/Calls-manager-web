@@ -55,43 +55,45 @@ export const CallsChart = ({ enrichedCalls }: CallsChartProps) => {
     return data.map(({ day, ...rest }) => ({ day, ...rest }));
   }, [enrichedCalls]);
   return (
-    <Card className="border-0 shadow-md">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg">Activité de la semaine</CardTitle>
+    <Card className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+      <CardHeader className="pb-2 md:pb-3 border-b border-slate-200 px-4 md:px-6 py-3 md:py-4">
+        <CardTitle className="text-base md:text-lg font-semibold text-slate-800">Activité de la semaine</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
+      <CardContent className="p-4 md:p-6">
+        <div className="h-[250px] sm:h-[300px] md:h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="colorAnswered" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="colorMissed" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
               <XAxis
                 dataKey="day"
-                stroke="hsl(var(--muted-foreground))"
+                stroke="#94A3B8"
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
-                stroke="hsl(var(--muted-foreground))"
+                stroke="#94A3B8"
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
+                  backgroundColor: '#1e293b',
+                  border: 'none',
                   borderRadius: '8px',
+                  color: '#ffffff',
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                 }}
               />
               <Legend />
@@ -99,7 +101,7 @@ export const CallsChart = ({ enrichedCalls }: CallsChartProps) => {
                 type="monotone"
                 dataKey="answered"
                 name="Répondus"
-                stroke="hsl(var(--chart-1))"
+                stroke="#6366F1"
                 fillOpacity={1}
                 fill="url(#colorAnswered)"
                 strokeWidth={2}
@@ -108,7 +110,7 @@ export const CallsChart = ({ enrichedCalls }: CallsChartProps) => {
                 type="monotone"
                 dataKey="missed"
                 name="Manqués"
-                stroke="hsl(var(--destructive))"
+                stroke="#EF4444"
                 fillOpacity={1}
                 fill="url(#colorMissed)"
                 strokeWidth={2}

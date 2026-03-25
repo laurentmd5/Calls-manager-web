@@ -9,8 +9,8 @@ const Calls = () => {
       title="Appels"
       subtitle="Historique et gestion des appels"
     >
-      <Card className="border-0 shadow-md">
-        <CardContent className="pt-6">
+      <Card className="border-0 shadow-md rounded-xl overflow-hidden">
+        <CardContent className="p-4 md:p-6">
           <CallsTable calls={mockCalls} />
         </CardContent>
       </Card>

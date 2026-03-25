@@ -281,7 +281,7 @@ const Performance = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Profile Card */}
         <Card className="border-0 shadow-md">
           <CardContent className="pt-6">
@@ -349,7 +349,7 @@ const Performance = () => {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mt-6">
         <Card className="border-0 shadow-md">
           <CardHeader>
             <div className="flex justify-between items-center">

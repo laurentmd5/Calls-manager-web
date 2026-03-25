@@ -11,7 +11,6 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { CallsTable } from '@/components/calls/CallsTable';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMemo } from 'react';
 import { useCallsWithDetails } from '@/hooks/useCallsWithDetails';
 
@@ -54,8 +53,8 @@ const Dashboard = () => {
       title="Dashboard"
       subtitle="Vue d'ensemble de l'activité commerciale"
     >
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+      {/* Stats Grid - Ultra Responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 md:gap-4 mb-6 md:mb-8">
         <StatCard
           title="Total appels"
           value={stats.totalCalls.toLocaleString()}
@@ -98,23 +97,23 @@ const Dashboard = () => {
         />
       </div>
 
-      {/* Charts & Top Performers */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2">
+      {/* Charts & Top Performers - Stack on mobile, side-by-side on md+ */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+        <div className="md:col-span-2">
           <CallsChart enrichedCalls={enrichedCalls} />
         </div>
         <TopPerformers enrichedCalls={enrichedCalls} />
       </div>
 
       {/* Recent Calls */}
-      <Card className="border-0 shadow-md">
-        <CardHeader>
-          <CardTitle className="text-lg">Appels récents</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="border-0 shadow-md rounded-xl overflow-hidden bg-white">
+        <div className="border-b border-slate-200 px-4 md:px-6 py-3 md:py-4">
+          <h2 className="text-base md:text-lg font-semibold text-slate-800">Appels récents</h2>
+        </div>
+        <div className="p-4 md:p-6">
           <CallsTable />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </DashboardLayout>
   );
 };

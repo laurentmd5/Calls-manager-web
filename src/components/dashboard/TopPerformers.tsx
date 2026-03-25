@@ -62,49 +62,49 @@ export const TopPerformers = ({ enrichedCalls }: TopPerformersProps) => {
   };
 
   return (
-    <Card className="border-0 shadow-md">
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <TrendingUp className="h-5 w-5 text-primary" />
+    <Card className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+      <CardHeader className="pb-2 md:pb-3 border-b border-slate-200 px-4 md:px-6 py-3 md:py-4">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg font-semibold text-slate-800">
+          <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-indigo-600" />
           Top Performeurs
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2 md:space-y-3 p-4 md:p-6">
         {sortedUsers.map((user, index) => (
           <div
-            key={user.id}
-            className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+            key={user.name}
+            className="flex items-center gap-3 p-2 md:p-3 rounded-lg bg-slate-50 hover:bg-slate-100/80 transition-colors duration-150"
           >
             <div
               className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold',
-                index === 0 && 'bg-yellow-500 text-yellow-950',
-                index === 1 && 'bg-gray-400 text-gray-950',
-                index === 2 && 'bg-amber-600 text-amber-950',
-                index > 2 && 'bg-muted text-muted-foreground'
+                'flex h-7 md:h-8 w-7 md:w-8 items-center justify-center rounded-lg text-xs font-bold text-white flex-shrink-0',
+                index === 0 && 'bg-amber-500',
+                index === 1 && 'bg-slate-400',
+                index === 2 && 'bg-amber-600',
+                index > 2 && 'bg-slate-300 text-slate-600'
               )}
             >
               {index + 1}
             </div>
-            <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-primary/10 text-primary font-medium">
+            <Avatar className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0">
+              <AvatarFallback className="bg-indigo-100 text-indigo-600 font-semibold text-xs">
                 {user.name.split(' ').map((n: string) => n[0]).join('')}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-foreground truncate">
+              <p className="font-medium text-slate-900 text-xs md:text-sm truncate">
                 {user.name}
               </p>
-              <p className="text-sm text-muted-foreground">
-                {user.answeredCalls}/{user.totalCalls} appels répondus
+              <p className="text-xs text-slate-500">
+                {user.answeredCalls}/{user.totalCalls} répondus
               </p>
             </div>
             <div className="text-right">
               <div className="flex items-center gap-1">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="font-medium">{user.rating.toFixed(1)}</span>
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                <span className="font-medium text-sm text-slate-900">{user.rating.toFixed(1)}</span>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-500">
                 {formatDuration(user.totalDuration)}
               </p>
             </div>

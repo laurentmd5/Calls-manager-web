@@ -218,11 +218,11 @@ const Commercials = () => {
       title={showInactive ? "Utilisateurs Inactifs" : "Gestion des Commerciaux"}
       subtitle={showInactive ? "Gérez les comptes utilisateurs inactifs" : "Gérez votre équipe commerciale"}
     >
-      <div className="mb-6 flex justify-between items-center gap-4">
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4">
         <Button 
           variant={showInactive ? "default" : "outline"}
           onClick={handleToggleInactive}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 w-full sm:w-auto"
         >
           {showInactive ? (
             <>
@@ -240,7 +240,7 @@ const Commercials = () => {
         {!showInactive && (
           <Button 
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Nouveau commercial
@@ -253,7 +253,7 @@ const Commercials = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
       ) : (
-        <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="rounded-lg border bg-card overflow-x-auto shadow-md">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">

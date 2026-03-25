@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, X } from 'lucide-react';
 import { formatDuration } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -139,26 +139,30 @@ export const AudioPlayerModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md rounded-2xl shadow-2xl">
         <DialogHeader>
+          <DialogTitle>Écoute & Coaching</DialogTitle>
+          <DialogDescription className="sr-only">
+            Lecteur audio avec contexte d'appel et notes du commercial
+          </DialogDescription>
           <div className="flex justify-between items-center">
-            <DialogTitle>Écoute & Coaching</DialogTitle>
+            <span />
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
           </div>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="space-y-3 md:space-y-4">
           {/* Call Context Card - TOP SECTION */}
           {(commercialName || callDate || decision) && (
-            <div className="bg-muted p-4 rounded-lg space-y-2 border">
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl p-3 md:p-4 space-y-2">
               <div>
-                <p className="font-semibold text-sm">
+                <p className="font-semibold text-xs md:text-sm">
                   Appel de <span className="font-bold">{commercialName}</span>
                 </p>
               </div>
-              <div className="text-sm text-muted-foreground space-y-1">
+              <div className="text-xs md:text-sm text-white/80 space-y-1">
                 {callData?.phoneNumber && <p>{callData.phoneNumber}</p>}
                 {callDate && (
                   <p>
@@ -175,13 +179,16 @@ export const AudioPlayerModal = ({
               {decision && (
                 <div className="pt-2">
                   <Badge
-                    className={cn({
-                      'bg-green-500 hover:bg-green-600': decision === 'INTERESTED',
-                      'bg-blue-500 hover:bg-blue-600': decision === 'CALL_BACK',
-                      'bg-gray-500 hover:bg-gray-600': decision === 'NOT_INTERESTED',
-                      'bg-yellow-500 hover:bg-yellow-600': decision === 'NO_ANSWER',
-                      'bg-red-500 hover:bg-red-600': decision === 'WRONG_NUMBER',
-                    })}
+                    className={cn(
+                      'inline-block bg-white/20 text-white border border-white/30 text-xs',
+                      {
+                        'bg-emerald-500/30 text-white border border-emerald-400': decision === 'INTERESTED',
+                        'bg-indigo-500/30 text-white border border-indigo-400': decision === 'CALL_BACK',
+                        'bg-slate-500/30 text-white border border-slate-400': decision === 'NOT_INTERESTED',
+                        'bg-amber-500/30 text-white border border-amber-400': decision === 'NO_ANSWER',
+                        'bg-red-500/30 text-white border border-red-400': decision === 'WRONG_NUMBER',
+                      }
+                    )}
                   >
                     {decision === 'INTERESTED' && 'Intéressé'}
                     {decision === 'CALL_BACK' && 'À rappeler'}
@@ -197,30 +204,29 @@ export const AudioPlayerModal = ({
           
           {/* MIDDLE SECTION - Audio player */}
           
-          <div className="space-y-2">
-            <div className="flex items-center justify-center space-x-4">
-              <Button variant="ghost" size="icon" onClick={skipBackward}>
-                <SkipBack className="h-5 w-5" />
+          <div className="bg-slate-50 rounded-xl p-3 md:p-4 space-y-2 md:space-y-3">
+            <div className="flex items-center justify-center space-x-2 md:space-x-4">
+              <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={skipBackward}>
+                <SkipBack className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
               <Button 
-                variant="outline" 
                 size="icon" 
-                className="h-12 w-12 rounded-full"
+                className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0"
                 onClick={togglePlay}
               >
                 {isPlaying ? (
-                  <Pause className="h-6 w-6" />
+                  <Pause className="h-5 w-5 md:h-6 md:w-6" />
                 ) : (
-                  <Play className="h-6 w-6" />
+                  <Play className="h-5 w-5 md:h-6 md:w-6 fill-current" />
                 )}
               </Button>
-              <Button variant="ghost" size="icon" onClick={skipForward}>
-                <SkipForward className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={skipForward}>
+                <SkipForward className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-muted-foreground w-10 text-right">
+            <div className="flex items-center space-x-1 md:space-x-2">
+              <span className="text-xs text-slate-500 w-8 md:w-10 text-right">
                 {formatTime(currentTime)}
               </span>
               <Slider
@@ -229,14 +235,17 @@ export const AudioPlayerModal = ({
                 step={0.1}
                 onValueChange={handleSeek}
                 className="flex-1"
+                style={{
+                  background: 'linear-gradient(to right, hsl(240 80% 63%) 0%, hsl(240 80% 63%) calc((currentTime / duration) * 100%), #e2e8f0 calc((currentTime / duration) * 100%), #e2e8f0 100%)'
+                } as React.CSSProperties}
               />
-              <span className="text-xs text-muted-foreground w-10">
+              <span className="text-xs text-slate-500 w-8 md:w-10">
                 {formatTime(duration)}
               </span>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="icon" onClick={toggleMute}>
+            <div className="flex items-center space-x-1 md:space-x-2">
+              <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={toggleMute}>
                 {isMuted || volume === 0 ? (
                   <VolumeX className="h-4 w-4" />
                 ) : (
@@ -254,14 +263,14 @@ export const AudioPlayerModal = ({
           </div>
 
           {/* BOTTOM SECTION - Notes panel */}
-          <div className="mt-4 pt-4 border-t space-y-2">
-            <p className="text-sm font-medium">Notes du commercial</p>
+          <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t border-slate-200 space-y-2">
+            <p className="text-xs md:text-sm font-semibold text-slate-800">Notes du commercial</p>
             {notes && notes.trim() ? (
-              <div className="bg-muted p-3 rounded text-sm max-h-[120px] overflow-y-auto whitespace-pre-wrap">
+              <div className="bg-white border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm max-h-[120px] overflow-y-auto whitespace-pre-wrap text-slate-700 leading-relaxed">
                 {notes}
               </div>
             ) : (
-              <div className="bg-muted p-3 rounded text-sm text-muted-foreground italic">
+              <div className="bg-white border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm text-slate-400 italic">
                 Ce commercial n'a pas laissé de notes
               </div>
             )}

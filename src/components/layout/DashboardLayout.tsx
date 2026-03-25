@@ -1,11 +1,12 @@
 import { ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { AppSidebar } from './AppSidebar';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -15,8 +16,8 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { mobileOpen, setMobileOpen, collapsed } = useSidebar();
   const navigate = useNavigate();
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -37,14 +38,14 @@ export const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutPr
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-50">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <AppSidebar />
       </div>
 
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 border-b border-border bg-card px-4 flex items-center justify-between">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 border-b border-slate-200 bg-white px-4 flex items-center justify-between">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -55,18 +56,21 @@ export const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutPr
             <AppSidebar />
           </SheetContent>
         </Sheet>
-        <h1 className="text-lg font-semibold">{title}</h1>
+        <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
         <div className="w-10" />
       </header>
 
       {/* Main Content */}
-      <main className="lg:ml-64 min-h-screen pt-14 lg:pt-0">
-        <div className="p-6 lg:p-8">
+      <main className={cn(
+        'min-h-screen pt-14 lg:pt-0 transition-all duration-300',
+        collapsed ? 'lg:ml-16' : 'lg:ml-64'
+      )}>
+        <div className="p-4 md:p-6 lg:p-8">
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{title}</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">{title}</h1>
             {subtitle && (
-              <p className="mt-1 text-muted-foreground">{subtitle}</p>
+              <p className="mt-1 text-slate-500 text-sm">{subtitle}</p>
             )}
           </div>
 

@@ -44,11 +44,11 @@ import type { EnrichedCall } from '@/hooks/useCallsWithDetails'
 
 // Decision badge color mapping
 const decisionColorConfig: Record<string, string> = {
-  INTERESTED: 'bg-green-100 text-green-800 border-green-300',
-  CALL_BACK: 'bg-blue-100 text-blue-800 border-blue-300',
-  NOT_INTERESTED: 'bg-gray-100 text-gray-800 border-gray-300',
-  WRONG_NUMBER: 'bg-red-100 text-red-800 border-red-300',
-  NO_ANSWER: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  INTERESTED: 'bg-emerald-100 text-emerald-700 font-medium border border-emerald-200',
+  CALL_BACK: 'bg-indigo-100 text-indigo-700 font-medium border border-indigo-200',
+  NOT_INTERESTED: 'bg-slate-100 text-slate-600 font-medium border border-slate-200',
+  WRONG_NUMBER: 'bg-red-100 text-red-700 font-medium border border-red-200',
+  NO_ANSWER: 'bg-amber-100 text-amber-700 font-medium border border-amber-200',
 }
 
 const decisionLabelConfig: Record<string, string> = {
@@ -139,12 +139,12 @@ export const CallsTable = () => {
       <div className="flex flex-col gap-4 md:flex-row">
         {/* Search filter */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Rechercher par commercial ou numéro..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-10 border-slate-200 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
           />
         </div>
 
@@ -184,14 +184,14 @@ export const CallsTable = () => {
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-[180px]">Commercial</TableHead>
-                <TableHead className="w-[130px]">Client</TableHead>
-                <TableHead className="w-[160px]">Date & Heure</TableHead>
-                <TableHead className="w-[80px]">Durée</TableHead>
-                <TableHead className="w-[100px]">Décision</TableHead>
-                <TableHead className="flex-1 min-w-[200px]">Notes</TableHead>
-                <TableHead className="w-[80px] text-center">Écoute</TableHead>
+              <TableRow className="bg-slate-50 border-b border-slate-200">
+                <TableHead className="w-[180px] text-slate-500 text-xs font-semibold uppercase tracking-wider">Commercial</TableHead>
+                <TableHead className="w-[130px] text-slate-500 text-xs font-semibold uppercase tracking-wider">Client</TableHead>
+                <TableHead className="w-[160px] text-slate-500 text-xs font-semibold uppercase tracking-wider">Date & Heure</TableHead>
+                <TableHead className="w-[80px] text-slate-500 text-xs font-semibold uppercase tracking-wider">Durée</TableHead>
+                <TableHead className="w-[100px] text-slate-500 text-xs font-semibold uppercase tracking-wider">Décision</TableHead>
+                <TableHead className="flex-1 min-w-[200px] text-slate-500 text-xs font-semibold uppercase tracking-wider">Notes</TableHead>
+                <TableHead className="w-[80px] text-center text-slate-500 text-xs font-semibold uppercase tracking-wider">Écoute</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -243,10 +243,13 @@ export const CallsTable = () => {
                 </TableRow>
               ) : (
                 <>
-                  {processedCalls.map(call => (
+                  {processedCalls.map((call, idx) => (
                     <TooltipProvider key={call.id}>
                       {/* Main row */}
-                      <TableRow className="hover:bg-muted/30">
+                      <TableRow className={cn(
+                        'hover:bg-slate-50 transition-colors duration-150',
+                        idx % 2 === 1 && 'even:bg-slate-50/50'
+                      )}>
                         {/* Commercial column */}
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
@@ -334,10 +337,9 @@ export const CallsTable = () => {
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
-                                  variant="ghost"
                                   size="icon"
                                   onClick={() => handlePlayClick(call)}
-                                  className="h-8 w-8 text-primary hover:text-primary/80"
+                                  className="h-8 w-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-sm hover:shadow transition-all duration-150"
                                 >
                                   <Play className="h-4 w-4 fill-current" />
                                 </Button>
@@ -348,7 +350,7 @@ export const CallsTable = () => {
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <div className="flex justify-center">
-                                  <MicOff className="h-4 w-4 text-muted-foreground" />
+                                  <MicOff className="h-4 w-4 text-slate-300" />
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent>

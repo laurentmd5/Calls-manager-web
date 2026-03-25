@@ -41,8 +41,9 @@ export const useCallsWithDetails = (): UseCallsWithDetailsReturn => {
     try {
       const token = localStorage.getItem('access_token');
       if (!token) throw new Error('Token non trouvé');
+      const rawToken = token?.replace('Bearer ', '').replace('bearer ', '');
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/calls?skip=0&limit=100&token=${token}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/calls?skip=0&limit=100&token=${rawToken}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -70,8 +71,9 @@ export const useCallsWithDetails = (): UseCallsWithDetailsReturn => {
     try {
       const token = localStorage.getItem('access_token');
       if (!token) throw new Error('Token non trouvé');
+      const rawToken = token?.replace('Bearer ', '').replace('bearer ', '');
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/users/commercials?token=${token}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/users/commercials?token=${rawToken}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -106,9 +108,10 @@ export const useCallsWithDetails = (): UseCallsWithDetailsReturn => {
     try {
       const token = localStorage.getItem('access_token');
       if (!token) return false;
+      const rawToken = token?.replace('Bearer ', '').replace('bearer ', '');
 
       const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/recordings/by-call/${callId}?token=${token}`,
+        `${API_CONFIG.BASE_URL}/api/v1/recordings/by-call/${callId}?token=${rawToken}`,
         {
           method: 'GET',
           headers: {
@@ -149,6 +152,8 @@ export const useCallsWithDetails = (): UseCallsWithDetailsReturn => {
       });
 
       // Enrichir les appels avec les données commerciales et d'enregistrement
+      const token = localStorage.getItem('access_token');
+      const rawToken = token?.replace('Bearer ', '').replace('bearer ', '');
       const enriched: EnrichedCall[] = calls.map(call => {
         const commercial = commercialMap[call.commercial_id];
         const commercialName = commercial
@@ -156,9 +161,8 @@ export const useCallsWithDetails = (): UseCallsWithDetailsReturn => {
           : `Commercial #${call.commercial_id}`;
 
         const hasRecording = recordingMap[call.id] || false;
-        const token = localStorage.getItem('access_token');
         const audioUrl = hasRecording && token
-          ? `${API_CONFIG.BASE_URL}/api/v1/recordings/by-call/${call.id}/play?token=${token}`
+          ? `${API_CONFIG.BASE_URL}/api/v1/recordings/by-call/${call.id}/play?token=${rawToken}`
           : null;
 
         return {
