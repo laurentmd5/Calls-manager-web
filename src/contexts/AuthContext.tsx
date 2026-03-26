@@ -39,20 +39,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Vérifier l'authentification au chargement
   const checkAuth = useCallback(async () => {
     try {
+      console.log('[AuthContext] checkAuth() starting...');
       const token = localStorage.getItem('access_token');
+      console.log('[AuthContext] Token in localStorage:', token ? 'YES' : 'NO');
+      
       if (!token) {
+        console.log('[AuthContext] No token, setting user to null');
         setUser(null);
         setIsLoading(false);
         return;
       }
 
+      console.log('[AuthContext] Token found, fetching profile...');
       const response = await authService.getProfile();
       const userData = normalizeUser(response.data);
+      console.log('[AuthContext] Profile response:', userData);
       
       if (userData) {
         // Vérifier si l'utilisateur a le rôle requis
         if (!hasRequiredRole(userData)) {
-          console.log('Utilisateur sans rôle admin/manager détecté, déconnexion...');
+          console.log('[AuthContext] User has no required role, logging out');
           localStorage.removeItem('access_token');
           setUser(null);
           setIsLoading(false);
@@ -63,19 +69,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           return;
         }
+        console.log('[AuthContext] Setting user:', userData.email);
         setUser(userData);
       } else {
         // Si le token est invalide ou expiré
         if (response.status === 401 || response.status === 403) {
           localStorage.removeItem('access_token');
         }
+        console.log('[AuthContext] No user data, setting to null');
         setUser(null);
       }
     } catch (error) {
-      console.error('Erreur de vérification de l\'authentification:', error);
+      console.error('[AuthContext] checkAuth error:', error);
       localStorage.removeItem('access_token');
       setUser(null);
     } finally {
+      console.log('[AuthContext] checkAuth() complete, isLoading = false');
       setIsLoading(false);
     }
   }, []);

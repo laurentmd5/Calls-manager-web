@@ -1,13 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Call } from '@/types/api';
-import { API_CONFIG } from '@/config/api';
-
-interface Commercial {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-}
+import { useState, useEffect, useCallback } from 'react';
+import { api } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface EnrichedCall {
   id: number;
@@ -20,8 +13,6 @@ interface EnrichedCall {
   commercialId: number;
   commercialName: string;
   hasRecording: boolean;
-  audioUrl: string | null;
-  callType?: 'incoming' | 'outgoing';
 }
 
 interface UseCallsWithDetailsReturn {
@@ -31,117 +22,45 @@ interface UseCallsWithDetailsReturn {
   refetch: () => Promise<void>;
 }
 
+export type { EnrichedCall };
+
 export const useCallsWithDetails = (): UseCallsWithDetailsReturn => {
+  const { isAuthenticated } = useAuth();
   const [enrichedCalls, setEnrichedCalls] = useState<EnrichedCall[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fonction pour récupérer tous les appels
-  const fetchCalls = useCallback(async (): Promise<Call[]> => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) throw new Error('Token non trouvé');
-      const rawToken = token?.replace('Bearer ', '').replace('bearer ', '');
-
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/calls?skip=0&limit=100&token=${rawToken}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) throw new Error('Impossible de récupérer les appels');
-
-      const data = await response.json();
-      if (!Array.isArray(data.data) && !Array.isArray(data)) {
-        throw new Error('Format de réponse invalide');
-      }
-      
-      const calls = Array.isArray(data.data) ? data.data : data;
-      return calls as Call[];
-    } catch (err) {
-      console.error('Erreur lors de la récupération des appels:', err);
-      throw err;
-    }
-  }, []);
-
-  // Fonction pour récupérer tous les commerciaux
-  const fetchCommercials = useCallback(async (): Promise<Record<number, Commercial>> => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) throw new Error('Token non trouvé');
-      const rawToken = token?.replace('Bearer ', '').replace('bearer ', '');
-
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/users/commercials?token=${rawToken}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) throw new Error('Impossible de récupérer les commerciaux');
-
-      const data = await response.json();
-      if (!Array.isArray(data.data) && !Array.isArray(data)) {
-        throw new Error('Format de réponse invalide');
-      }
-      
-      const commercials = Array.isArray(data.data) ? data.data : data;
-      
-      // Créer une map pour accès rapide par ID
-      const commercialMap: Record<number, Commercial> = {};
-      commercials.forEach((c: Commercial) => {
-        commercialMap[c.id] = c;
-      });
-      
-      return commercialMap;
-    } catch (err) {
-      console.error('Erreur lors de la récupération des commerciaux:', err);
-      throw err;
-    }
-  }, []);
-
-  // Fonction pour vérifier si un enregistrement existe
-  const checkRecording = useCallback(async (callId: number): Promise<boolean> => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) return false;
-      const rawToken = token?.replace('Bearer ', '').replace('bearer ', '');
-
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/recordings/by-call/${callId}?token=${rawToken}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      return response.status === 200;
-    } catch (err) {
-      console.error(`Erreur lors de la vérification de l'enregistrement pour l'appel ${callId}:`, err);
-      return false;
-    }
-  }, []);
-
   // Fonction principale pour récupérer et enrichir les données
   const fetchAndEnrich = useCallback(async () => {
+    // CRITICAL: Do not fetch if not authenticated
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      setEnrichedCalls([]);
+      setError(null);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      // Récupérer appels et commerciaux en parallèle
-      const [calls, commercialMap] = await Promise.all([
-        fetchCalls(),
-        fetchCommercials(),
-      ]);
+      // Récupérer appels via Axios (auth handle par interceptor)
+      const callsResponse = await api.get<any>('/api/v1/calls?skip=0&limit=100');
+      const calls = Array.isArray(callsResponse.data) ? callsResponse.data : callsResponse.data.data || [];
 
       // Vérifier les enregistrements en parallèle pour tous les appels
       const recordingChecks = calls.map(call => 
-        checkRecording(call.id).then(hasRecording => ({ callId: call.id, hasRecording }))
+        api.get<any>(`/api/v1/recordings/by-call/${call.id}`)
+          .then(() => ({ callId: call.id, hasRecording: true }))
+          .catch(err => {
+            // 404 = enregistrement n'existe pas, c'est normal
+            // Autres erreurs = problème réel
+            if (err.response?.status === 404) {
+              return { callId: call.id, hasRecording: false };
+            }
+            console.error(`Erreur lors de la vérification de l'enregistrement ${call.id}:`, err);
+            return { callId: call.id, hasRecording: false };
+          })
       );
       const recordingsResult = await Promise.all(recordingChecks);
       
@@ -152,18 +71,14 @@ export const useCallsWithDetails = (): UseCallsWithDetailsReturn => {
       });
 
       // Enrichir les appels avec les données commerciales et d'enregistrement
-      const token = localStorage.getItem('access_token');
-      const rawToken = token?.replace('Bearer ', '').replace('bearer ', '');
       const enriched: EnrichedCall[] = calls.map(call => {
-        const commercial = commercialMap[call.commercial_id];
+        // Le backend retourne les données du commercial dans chaque appel
+        const commercial = call.commercial;
         const commercialName = commercial
           ? `${commercial.first_name} ${commercial.last_name}`
           : `Commercial #${call.commercial_id}`;
 
         const hasRecording = recordingMap[call.id] || false;
-        const audioUrl = hasRecording && token
-          ? `${API_CONFIG.BASE_URL}/api/v1/recordings/by-call/${call.id}/play?token=${rawToken}`
-          : null;
 
         return {
           id: call.id,
@@ -176,8 +91,6 @@ export const useCallsWithDetails = (): UseCallsWithDetailsReturn => {
           commercialId: call.commercial_id,
           commercialName,
           hasRecording,
-          audioUrl,
-          callType: call.call_type,
         };
       });
 
@@ -189,12 +102,18 @@ export const useCallsWithDetails = (): UseCallsWithDetailsReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchCalls, fetchCommercials, checkRecording]);
+  }, [isAuthenticated]);
 
-  // Fetch au montage et quand les dépendances changent
+  // Fetch only when authenticated, not on every render
   useEffect(() => {
+    console.log('[useCallsWithDetails] isAuthenticated changed:', isAuthenticated);
+    if (!isAuthenticated) {
+      console.log('[useCallsWithDetails] Not authenticated, skipping fetch');
+      return;
+    }
+    console.log('[useCallsWithDetails] Authenticated, fetching data...');
     fetchAndEnrich();
-  }, [fetchAndEnrich]);
+  }, [isAuthenticated, fetchAndEnrich]);
 
   // Fonction pour actualiser les données
   const refetch = useCallback(async () => {

@@ -55,16 +55,6 @@ apiClient.interceptors.request.use(
       // Ajouter les en-têtes nécessaires pour les requêtes CORS
       (config.headers as any)['Content-Type'] = 'application/json';
       (config.headers as any).Accept = 'application/json';
-      
-      // Ajouter le token en paramètre si nécessaire (pour la compatibilité avec certaines API)
-      if (config.params) {
-        config.params = {
-          ...config.params,
-          token: token.replace('Bearer ', '')
-        };
-      } else {
-        config.params = { token: token.replace('Bearer ', '') };
-      }
     } else {
       console.warn('Aucun token d\'authentification trouvé');
     }
@@ -102,13 +92,18 @@ apiClient.interceptors.response.use(
       const { status } = error.response;
       
       if (status === 401) {
-        // Rediriger vers la page de connexion si non authentifié
-        localStorage.removeItem('access_token');
-        window.location.href = '/login';
+        // On 401: Check if we have a token. If no token, redirect to login.
+        // If token exists, let the request fail silently (may be race condition)
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+          // Truly no token, redirect to login
+          window.location.href = '/login';
+        }
+        // If token exists but request returned 401, it's likely expired.
+        // Let the component handle the retry via AuthContext.checkAuth()
       }
       
-      // Vous pouvez ajouter plus de gestion d'erreurs ici
-      console.error('Erreur API:', error.response.data);
+      console.error('Erreur API:', error.response.status, error.response.data);
     } else if (error.request) {
       // La requête a été faite mais aucune réponse n'a été reçue
       console.error('Aucune réponse du serveur:', error.request);

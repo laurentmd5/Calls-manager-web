@@ -1,23 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, X } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, X, Loader2 } from 'lucide-react';
 import { formatDuration } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { api } from '@/services/api';
 
 interface AudioPlayerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  audioSrc: string | null;
-  callData?: {
-    phoneNumber: string;
-    date: string;
-    duration: number;
-  };
-  // Coaching context props
+  callId: number;
   commercialName?: string;
+  phoneNumber?: string;
   callDate?: Date;
   decision?: string | null;
   notes?: string | null;
@@ -26,9 +22,9 @@ interface AudioPlayerModalProps {
 export const AudioPlayerModal = ({
   isOpen,
   onClose,
-  audioSrc,
-  callData,
+  callId,
   commercialName,
+  phoneNumber,
   callDate,
   decision,
   notes,
@@ -38,8 +34,52 @@ export const AudioPlayerModal = ({
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
 
+  // Load audio blob when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadAudio = async () => {
+      setIsLoadingAudio(true);
+      setAudioError(null);
+
+      try {
+        // Fetch audio blob via Axios (with Authorization header)
+        const response = await api.get<Blob>(
+          `/api/v1/recordings/by-call/${callId}/play`,
+          { responseType: 'blob' }
+        );
+
+        // Create blob URL
+        if (blobUrlRef.current) {
+          URL.revokeObjectURL(blobUrlRef.current);
+        }
+        const blobUrl = URL.createObjectURL(response.data);
+        blobUrlRef.current = blobUrl;
+
+        // Set audio src
+        if (!audioRef.current) {
+          audioRef.current = new Audio();
+        }
+        audioRef.current.src = blobUrl;
+        audioRef.current.load();
+      } catch (err) {
+        console.error(`Erreur lors du chargement de l'audio pour l'appel ${callId}:`, err);
+        setAudioError('Impossible de charger l\'enregistrement audio');
+        setIsPlaying(false);
+      } finally {
+        setIsLoadingAudio(false);
+      }
+    };
+
+    loadAudio();
+  }, [isOpen, callId]);
+
+  // Setup audio element listeners
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
@@ -54,44 +94,41 @@ export const AudioPlayerModal = ({
       setCurrentTime(0);
     };
 
+    const onError = () => {
+      console.error('Erreur de lecture audio');
+      setAudioError('Erreur lors de la lecture du fichier audio');
+      setIsPlaying(false);
+    };
+
     audio.addEventListener('timeupdate', updateTime);
     audio.addEventListener('durationchange', updateDuration);
     audio.addEventListener('ended', onEnded);
+    audio.addEventListener('error', onError);
 
     return () => {
       audio.pause();
       audio.removeEventListener('timeupdate', updateTime);
       audio.removeEventListener('durationchange', updateDuration);
       audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('error', onError);
     };
   }, []);
 
-  useEffect(() => {
-    if (!audioRef.current) return;
-
-    const audio = audioRef.current;
-    
-    if (audioSrc) {
-      audio.src = audioSrc;
-      audio.load();
-      setCurrentTime(0);
-      
-      // Récupérer la durée du média
-      audio.onloadedmetadata = () => {
-        setDuration(audio.duration);
-      };
-    }
-
-    return () => {
-      audio.pause();
-      audio.src = '';
-    };
-  }, [audioSrc]);
-
+  // Handle volume changes
   useEffect(() => {
     if (!audioRef.current) return;
     audioRef.current.volume = isMuted ? 0 : volume;
   }, [volume, isMuted]);
+
+  // Cleanup blob URL on unmount or modal close
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -101,6 +138,7 @@ export const AudioPlayerModal = ({
     } else {
       audioRef.current.play().catch(error => {
         console.error('Erreur lors de la lecture audio:', error);
+        setAudioError('Impossible de lire l\'enregistrement');
       });
     }
     setIsPlaying(!isPlaying);
@@ -137,8 +175,17 @@ export const AudioPlayerModal = ({
     return formatDuration(Math.floor(time));
   };
 
+  const handleClose = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-md rounded-2xl shadow-2xl">
         <DialogHeader>
           <DialogTitle>Écoute & Coaching</DialogTitle>
@@ -147,7 +194,7 @@ export const AudioPlayerModal = ({
           </DialogDescription>
           <div className="flex justify-between items-center">
             <span />
-            <Button variant="ghost" size="icon" onClick={onClose}>
+            <Button variant="ghost" size="icon" onClick={handleClose}>
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -163,7 +210,7 @@ export const AudioPlayerModal = ({
                 </p>
               </div>
               <div className="text-xs md:text-sm text-white/80 space-y-1">
-                {callData?.phoneNumber && <p>{callData.phoneNumber}</p>}
+                {phoneNumber && <p>{phoneNumber}</p>}
                 {callDate && (
                   <p>
                     {callDate.toLocaleString('fr-FR', {
@@ -203,63 +250,76 @@ export const AudioPlayerModal = ({
           )}
           
           {/* MIDDLE SECTION - Audio player */}
-          
           <div className="bg-slate-50 rounded-xl p-3 md:p-4 space-y-2 md:space-y-3">
-            <div className="flex items-center justify-center space-x-2 md:space-x-4">
-              <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={skipBackward}>
-                <SkipBack className="h-4 w-4 md:h-5 md:w-5" />
-              </Button>
-              <Button 
-                size="icon" 
-                className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0"
-                onClick={togglePlay}
-              >
-                {isPlaying ? (
-                  <Pause className="h-5 w-5 md:h-6 md:w-6" />
-                ) : (
-                  <Play className="h-5 w-5 md:h-6 md:w-6 fill-current" />
-                )}
-              </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={skipForward}>
-                <SkipForward className="h-4 w-4 md:h-5 md:w-5" />
-              </Button>
-            </div>
+            {isLoadingAudio && (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                <span className="ml-2 text-sm text-slate-600">Chargement de l'enregistrement...</span>
+              </div>
+            )}
             
-            <div className="flex items-center space-x-1 md:space-x-2">
-              <span className="text-xs text-slate-500 w-8 md:w-10 text-right">
-                {formatTime(currentTime)}
-              </span>
-              <Slider
-                value={[currentTime]}
-                max={duration || 0}
-                step={0.1}
-                onValueChange={handleSeek}
-                className="flex-1"
-                style={{
-                  background: 'linear-gradient(to right, hsl(240 80% 63%) 0%, hsl(240 80% 63%) calc((currentTime / duration) * 100%), #e2e8f0 calc((currentTime / duration) * 100%), #e2e8f0 100%)'
-                } as React.CSSProperties}
-              />
-              <span className="text-xs text-slate-500 w-8 md:w-10">
-                {formatTime(duration)}
-              </span>
-            </div>
+            {audioError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                {audioError}
+              </div>
+            )}
             
-            <div className="flex items-center space-x-1 md:space-x-2">
-              <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={toggleMute}>
-                {isMuted || volume === 0 ? (
-                  <VolumeX className="h-4 w-4" />
-                ) : (
-                  <Volume2 className="h-4 w-4" />
-                )}
-              </Button>
-              <Slider
-                value={[isMuted ? 0 : volume * 100]}
-                max={100}
-                step={1}
-                onValueChange={(value) => handleVolumeChange(value)}
-                className="w-24"
-              />
-            </div>
+            {!isLoadingAudio && !audioError && (
+              <>
+                <div className="flex items-center justify-center space-x-2 md:space-x-4">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={skipBackward}>
+                    <SkipBack className="h-4 w-4 md:h-5 md:w-5" />
+                  </Button>
+                  <Button 
+                    size="icon" 
+                    className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0"
+                    onClick={togglePlay}
+                  >
+                    {isPlaying ? (
+                      <Pause className="h-5 w-5 md:h-6 md:w-6" />
+                    ) : (
+                      <Play className="h-5 w-5 md:h-6 md:w-6 fill-current" />
+                    )}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={skipForward}>
+                    <SkipForward className="h-4 w-4 md:h-5 md:w-5" />
+                  </Button>
+                </div>
+                
+                <div className="flex items-center space-x-1 md:space-x-2">
+                  <span className="text-xs text-slate-500 w-8 md:w-10 text-right">
+                    {formatTime(currentTime)}
+                  </span>
+                  <Slider
+                    value={[currentTime]}
+                    max={duration || 0}
+                    step={0.1}
+                    onValueChange={handleSeek}
+                    className="flex-1"
+                  />
+                  <span className="text-xs text-slate-500 w-8 md:w-10">
+                    {formatTime(duration)}
+                  </span>
+                </div>
+                
+                <div className="flex items-center space-x-1 md:space-x-2">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8" onClick={toggleMute}>
+                    {isMuted || volume === 0 ? (
+                      <VolumeX className="h-4 w-4" />
+                    ) : (
+                      <Volume2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Slider
+                    value={[isMuted ? 0 : volume * 100]}
+                    max={100}
+                    step={1}
+                    onValueChange={(value) => handleVolumeChange(value)}
+                    className="w-24"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           {/* BOTTOM SECTION - Notes panel */}

@@ -440,12 +440,12 @@ export const CallsTable = () => {
         <AudioPlayerModal
           isOpen={audioModalOpen}
           onClose={handleCloseModal}
-          audioSrc={selectedCall.audioUrl}
+          callId={selectedCall.id}
           commercialName={selectedCall.commercialName}
+          phoneNumber={selectedCall.phoneNumber}
           callDate={selectedCall.callDate}
           decision={selectedCall.decision}
           notes={selectedCall.notes}
-          duration={selectedCall.duration}
         />
       )}
     </div>
