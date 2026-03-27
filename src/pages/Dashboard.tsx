@@ -17,15 +17,42 @@ import { useCallsWithDetails } from '@/hooks/useCallsWithDetails';
 const Dashboard = () => {
   const { enrichedCalls } = useCallsWithDetails();
 
+  /**
+   * Formate la durée totale en format lisible
+   * ✅ CORRECTION: Gère le cas 0 secondes correctement
+   */
   const formatDuration = (seconds: number) => {
+    if (seconds === 0 || isNaN(seconds) || seconds < 0) return '0s';
+    
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${mins}m`;
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    }
+    if (mins > 0) {
+      return `${mins}m ${secs}s`;
+    }
+    return `${secs}s`;
   };
 
+  /**
+   * Formate la durée moyenne en format lisible
+   * ✅ CORRECTION: Évite l'affichage de valeurs flottantes non formatées
+   */
   const formatAverageDuration = (seconds: number) => {
+    if (seconds === 0 || isNaN(seconds) || seconds < 0) return '0s';
+    
     const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
+    
+    if (mins === 0) {
+      return `${secs}s`;
+    }
+    if (secs === 0) {
+      return `${mins}m`;
+    }
     return `${mins}m ${secs}s`;
   };
 

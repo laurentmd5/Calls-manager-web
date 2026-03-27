@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, X, Loader2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, Loader2 } from 'lucide-react';
 import { formatDuration } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -186,18 +186,13 @@ export const AudioPlayerModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      {/* ✅ CORRECTION: Supprimé le bouton de fermeture manuel, DialogContent en a déjà un */}
       <DialogContent className="sm:max-w-md rounded-2xl shadow-2xl">
         <DialogHeader>
           <DialogTitle>Écoute & Coaching</DialogTitle>
           <DialogDescription className="sr-only">
             Lecteur audio avec contexte d'appel et notes du commercial
           </DialogDescription>
-          <div className="flex justify-between items-center">
-            <span />
-            <Button variant="ghost" size="icon" onClick={handleClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
         </DialogHeader>
         
         <div className="space-y-3 md:space-y-4">
