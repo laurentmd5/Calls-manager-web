@@ -1,0 +1,163 @@
+# ============================================
+# Dépendances
+# ============================================
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store
+.pnpm-debug.log
+
+# ============================================
+# Build et cache
+# ============================================
+dist
+build
+.cache
+.parcel-cache
+.turbo
+.next
+out
+
+# ============================================
+# Tests
+# ============================================
+coverage
+.nyc_output
+*.test.js
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.ts
+*.spec.tsx
+__tests__
+__mocks__
+jest.config.js
+vitest.config.ts
+*.test.{js,ts,tsx}
+*.spec.{js,ts,tsx}
+
+# ============================================
+# Git
+# ============================================
+.git
+.gitignore
+.gitattributes
+.gitmodules
+
+# ============================================
+# CI/CD
+# ============================================
+.github
+.gitlab-ci.yml
+.travis.yml
+circle.yml
+.azure-pipelines
+.husky
+
+# ============================================
+# IDE et éditeurs
+# ============================================
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+.envrc
+.editorconfig
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ============================================
+# Environnement
+# ============================================
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.staging
+.env.staging.local
+*.env
+*.env.local
+
+# ============================================
+# Logs
+# ============================================
+logs
+*.log
+*.log.*
+
+# ============================================
+# Docker
+# ============================================
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+.docker
+
+# ============================================
+# Documentation
+# ============================================
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE
+docs/
+*.md
+!README.md
+
+# ============================================
+# OS spécifique
+# ============================================
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+.directory
+
+# ============================================
+# Fichiers de configuration temporaires
+# ============================================
+*.pid
+*.seed
+*.pid.lock
+*.lock
+
+# ============================================
+# Analyse de code
+# ============================================
+.eslintcache
+.stylelintcache
+.prettierrc
+.eslintrc
+.stylelintrc
+.lintstagedrc
+*rc
+*config.js
+*config.ts
+!vite.config.ts
+!tailwind.config.ts
+
+# ============================================
+# TypeScript
+# ============================================
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ============================================
+# Architecture spécifique
+# ============================================
+src/**/*.stories.tsx
+src/**/*.stories.js
+src/**/*.test.tsx
+src/**/*.test.ts
+public/mockServiceWorker.js
