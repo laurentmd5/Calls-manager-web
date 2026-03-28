@@ -19,7 +19,6 @@ const Dashboard = () => {
 
   /**
    * Formate la durée totale en format lisible
-   * ✅ CORRECTION: Gère le cas 0 secondes correctement
    */
   const formatDuration = (seconds: number) => {
     if (seconds === 0 || isNaN(seconds) || seconds < 0) return '0s';
@@ -39,7 +38,6 @@ const Dashboard = () => {
 
   /**
    * Formate la durée moyenne en format lisible
-   * ✅ CORRECTION: Évite l'affichage de valeurs flottantes non formatées
    */
   const formatAverageDuration = (seconds: number) => {
     if (seconds === 0 || isNaN(seconds) || seconds < 0) return '0s';
@@ -80,8 +78,8 @@ const Dashboard = () => {
       title="Dashboard"
       subtitle="Vue d'ensemble de l'activité commerciale"
     >
-      {/* Stats Grid - Ultra Responsive */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 md:gap-4 mb-6 md:mb-8">
+      {/* Stats Grid - Responsive: 1col mobile → 2cols tablet → 3cols desktop → 6cols très large */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
         <StatCard
           title="Total appels"
           value={stats.totalCalls.toLocaleString()}
