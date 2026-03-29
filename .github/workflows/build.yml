@@ -1,307 +1,57 @@
-name: CI/CD — Defense-in-Depth Pipeline
+name: Build and Push Frontend Image
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch: {}
-
-permissions:
-  contents: read
-  actions: read
-  packages: write
-  security-events: write
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [main, master]
+  workflow_dispatch:
 
 env:
-  NODE_VERSION: 24
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/calltrack_frontend
+  REGISTRY: ghcr.io
+  IMAGE_NAME: calltrack-frontend
 
 jobs:
-  prechecks:
-    name: 'Pre-commit & Static Checks'
+  build-and-push:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Cache node modules
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: ESLint
-        run: npm run lint
-
-      - name: Prettier check
-        run: npx prettier --check . || true
-
-      - name: Run unit tests
-        run: npm test
-
-      - name: Dependency audit (fail on critical)
-        run: |
-          npm audit --json > audit.json || true
-          node -e "const a=require('./audit.json'); const crit=(a.metadata && a.metadata.vulnerabilities && a.metadata.vulnerabilities.critical)||0; if(crit>0){console.error('CRITICAL vulnerabilities:',crit); process.exit(1);} console.log('No critical vulnerabilities')"
-
-  codeql-analysis:
-    name: CodeQL SAST
-    runs-on: ubuntu-latest
-    needs: prechecks
     permissions:
       contents: read
-      actions: read
-      security-events: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript
-
-      - name: Auto-build
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Run CodeQL
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: '/language:javascript'
-
-  build-and-artifacts:
-    name: Build, SBOM, and Artifacts
-    runs-on: ubuntu-latest
-    needs: [prechecks, codeql-analysis]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install
-        run: npm ci
-
-      - name: Build (production)
-        run: npm run build
-
-      - name: Create build artifact (zip)
-        run: zip -r build-artifact.zip dist || true
-
-      - name: Generate SBOM (Syft)
-        uses: anchore/sbom-action@v0.20.10
-        with:
-          format: cyclonedx
-          output-file: sbom.cdx.xml
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifact
-          path: build-artifact.zip
-          retention-days: 1
-
-      - name: Upload dist folder for Docker
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-folder
-          path: dist/
-          retention-days: 1
-
-      - name: Upload SBOM
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom
-          path: sbom.cdx.xml
-
-  e2e-tests:
-    name: E2E / Integration Tests (if present)
-    runs-on: ubuntu-latest
-    needs: build-and-artifacts
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check for Playwright tests
-        id: pw-check
-        run: |
-          if [ -d "tests/e2e" ] || [ -d "playwright" ]; then echo "run=true"; else echo "run=false"; fi
-
-      - name: Run Playwright tests
-        if: steps.pw-check.outputs.run == 'true'
-        uses: microsoft/playwright-github-action@v1
-        with:
-          runTests: true
-
-  docker-build-and-scan:
-    name: 'Docker build, test & scan'
-    runs-on: ubuntu-latest
-    needs: build-and-artifacts
-    permissions:
       packages: write
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download dist folder
-        uses: actions/download-artifact@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          name: dist-folder
-          path: dist
-
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3.7.0
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3.11.0
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3.6.0
-        with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 'Build and push image'
-        uses: docker/build-push-action@v4
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=,format=short
+            type=raw,value=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.title=CallTrack Frontend
+            org.opencontainers.image.description=Frontend React pour CallTrack
+            org.opencontainers.image.vendor=${{ github.repository_owner }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
           push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.IMAGE_NAME }}:latest
-
-      - name: Get image digest
-        id: image
-        run: |
-          echo "IMAGE=${{ env.IMAGE_NAME }}:${{ github.sha }}" >> $GITHUB_OUTPUT
-
-      - name: Trivy scan (image)
-        uses: aquasecurity/trivy-action@0.33.1
-        with:
-          image-ref: ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          format: 'json'
-          output: 'trivy-report.json'
-          severity: CRITICAL
-
-      - name: Run container and healthcheck
-        run: |
-          docker run -d --rm --name test_container -p 8080:80 ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          for i in {1..10}; do if curl -sSf http://localhost:8080/ >/dev/null; then echo OK && break; else sleep 1; fi; done
-          docker ps -a
-          docker stop test_container || true
-
-      - name: Upload Trivy report
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-report
-          path: trivy-report.json
-
-  release:
-    name: 'Create Release & Attach Artifacts'
-    runs-on: ubuntu-latest
-    needs:
-      - prechecks
-      - docker-build-and-scan
-    permissions:
-      contents: write
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Get current version
-        id: version
-        run: |
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          echo "CURRENT=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-
-      - name: Bump patch version and create tag
-        id: tag
-        run: |
-          CUR=${{ steps.version.outputs.CURRENT }}
-          IFS='.' read -r MAJ MIN PATCH <<< "$CUR"
-          NEW=$MAJ.$MIN.$((PATCH+1))
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag v$NEW
-          git push origin v$NEW
-          echo "RELEASE=v$NEW" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2.4.0
-        with:
-          tag_name: ${{ steps.tag.outputs.RELEASE }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifact
-
-      - name: Upload artifact to release
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: build-artifact.zip
-          tag: ${{ steps.tag.outputs.RELEASE }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  post-checks-and-report:
-    name: 'Final Security Summary & Suggestions'
-    runs-on: ubuntu-latest
-    needs: [prechecks, codeql-analysis, build-and-artifacts, docker-build-and-scan]
-    if: always()
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Collect reports
-        run: |
-          echo "Reports available in workflow artifacts and release."
-
-      - name: Recommendations
-        run: |
-          cat <<'RECS'
-          Defense-in-Depth suggestions:
-          - Enforce dependency lockfile policy and pin transitive deps where possible.
-          - Add scheduled SCA scans and automatic PRs for dependency updates (Dependabot/Snyk)
-          - Harden nginx config (HSTS, stricter CSP, remove unsafe-inline where possible)
-          - Integrate DAST with authenticated scans (OWASP ZAP baseline) on a staging endpoint
-          - Add GitHub branch protection to require this workflow status checks before merge
-          RECS
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
