@@ -10,10 +10,6 @@ build/
 .gitignore
 .github/
 
-# Environnement
-.env
-.env.*
-*.env
 
 # Logs
 *.log
