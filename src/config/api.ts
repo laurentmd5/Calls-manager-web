@@ -1,7 +1,7 @@
 // Configuration de l'API
 export const API_CONFIG = {
   // URL de base de l'API - sans le / à la fin
-  BASE_URL: 'http://localhost:8000',
+    BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
   
   // Pas de préfixe ici, il sera géré dans les endpoints
   API_PREFIX: '',
